@@ -2726,7 +2726,8 @@ var qs=new URLSearchParams(location.search),SIG=qs.get('sig');
 var uid=null;try{uid=sessionStorage.getItem('wil_uid')}catch(e){}
 if(!uid){uid='g_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,6);try{sessionStorage.setItem('wil_uid',uid)}catch(e){}}
 function PeerCtor(){return window.Peer||(window.peerjs&&window.peerjs.Peer)}
-function peerOpts(){var o={debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
+var ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},{urls:'stun:stun.cloudflare.com:3478'},{urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}];
+function peerOpts(){var o={debug:0,config:{iceServers:ICE}};if(qs.get('ice')==='relay')o.config.iceTransportPolicy='relay';
   if(SIG){var p=SIG.split(':');o.host=p[0];o.port=+p[1];o.path='/';o.secure=false}return o}
 
 /* ---------- shared store ---------- */
@@ -2741,6 +2742,7 @@ function stripFor(u,path,d){
   if(path.indexOf('contribs/')===0&&d&&d.by!==u){var o={};for(var k in d)if(HEAVY.indexOf(k)<0)o[k]=d[k];o.stripped=true;return o}
   return d;
 }
+var tries=0,openedEver=0;
 var isHost=false,AIKEY=null,cfgAI=false,conns=new Map(),guestConn=null,peer=null,leases=new Map();
 var resolveReady,ready=new Promise(function(r){resolveReady=r});
 
@@ -2748,7 +2750,7 @@ var resolveReady,ready=new Promise(function(r){resolveReady=r});
 var pill=E('div',{style:'position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:99990;font:600 12px/1 var(--sans,system-ui);padding:6px 10px;border-radius:999px;background:rgba(15,20,28,.82);color:#fff;pointer-events:none;display:none'});
 document.body.append(pill);
 function setPill(state){pill.style.display='block';
-  if(isHost){pill.textContent='\u25CF Host \u00B7 '+conns.size+' connected';pill.style.background='rgba(15,20,28,.82)'}
+  if(isHost){var failed=Math.max(0,tries-openedEver);pill.textContent='\u25CF Host \u00B7 '+conns.size+' connected'+(failed?' \u00B7 '+failed+' couldn\u2019t connect':'');pill.style.background='rgba(15,20,28,.82)'}
   else if(state==='ok'){pill.textContent='\u25CF Connected';pill.style.background='rgba(19,128,58,.9)'}
   else{pill.textContent='\u25CF Reconnecting\u2026';pill.style.background='rgba(168,106,0,.95)'}}
 
@@ -2773,7 +2775,7 @@ function allow(u,op,path,data){
 function lease(path,holder,ttl){var now=Date.now(),l=leases.get(path);if(l&&l.exp>now&&l.holder!==holder)return false;leases.set(path,{holder:holder,exp:now+(ttl||4000)});return true}
 function hostOnMsg(conn,m){
   if(!m||typeof m!=='object')return;
-  if(m.t==='hello'){var u=String(m.uid||'').slice(0,40);if(!u)return;conn._uid=u;var old=conns.get(u);if(old&&old!==conn){try{old.close()}catch(e){}}conns.set(u,conn);setPill();
+  if(m.t==='hello'){var u=String(m.uid||'').slice(0,40);if(!u)return;conn._uid=u;var old=conns.get(u);if(old&&old!==conn){try{old.close()}catch(e){}}conns.set(u,conn);openedEver++;setPill();
     var docs={};store.forEach(function(d,p){docs[p]=stripFor(u,p,d)});conn.send({t:'state',docs:docs,cfg:{ai:!!AIKEY}});return}
   var u2=conn._uid;if(!u2)return;
   if(m.t==='w'){var r=allow(u2,m.op,String(m.path||''),m.data);if(r==='ok')hostApply(m.path,m.op==='delete'?null:m.data);conn.send({t:'ack',id:m.id,ok:r==='ok',err:r==='ok'?null:r});return}
@@ -2782,6 +2784,7 @@ function hostOnMsg(conn,m){
   if(m.t==='ai'){aiRun(m.input,m.tier).then(function(text){conn.send({t:'air',id:m.id,ok:true,text:text})},function(e){conn.send({t:'air',id:m.id,ok:false,code:e&&e.code||'upstream_error',message:e&&e.message||''})})}
 }
 function hostConn(conn){
+  tries++;setPill();
   conn.on('data',function(m){hostOnMsg(conn,m)});
   conn.on('close',function(){if(conn._uid&&conns.get(conn._uid)===conn){conns.delete(conn._uid);setPill()}});
   conn.on('error',function(){});
@@ -2838,16 +2841,21 @@ function guestOnMsg(m){
   if(m.t==='del'){store.delete(m.path);notify();return}
   if(m.t==='ack'||m.t==='gr'||m.t==='acr'||m.t==='air'){var f=pend.get(m.id);if(f){pend.delete(m.id);f(m)}}
 }
-var lastErr=null,rcTimer=null,guestCode=null;
+var lastErr=null,rcTimer=null,guestCode=null,onPeerErr=null;
+function diagString(c){var d=(c&&c._diag)||{},t=d.types||{},k=Object.keys(t);return 'connection service: '+(peer&&peer.open?'reached':'not reached')+' \u00B7 network routes found: '+(k.length?k.map(function(x){return x+' \u00D7'+t[x]}).join(', '):'none')+' \u00B7 link state: '+(d.state||'unknown')}
+function watchConn(c){var d=c._diag={types:{},state:null},pc=c.peerConnection;if(!pc)return;pc.addEventListener('icecandidate',function(e){if(e.candidate&&e.candidate.candidate){var m=/ typ (\w+)/.exec(e.candidate.candidate);if(m)d.types[m[1]]=(d.types[m[1]]||0)+1}});pc.addEventListener('iceconnectionstatechange',function(){d.state=pc.iceConnectionState})}
 function guestConnect(code){
   return new Promise(function(resolve,reject){
     var P=PeerCtor();if(!P)return reject(new Error('Peer library missing'));
-    if(!peer||peer.destroyed){peer=new P(undefined,peerOpts());peer.on('error',function(e){lastErr=e&&e.type})}
-    lastErr=null;
-    var go=function(){var c=peer.connect('wil-'+code,{reliable:true}),done=false;
-      var to=setTimeout(function(){if(!done){done=true;try{c.close()}catch(e){}reject(new Error(lastErr==='peer-unavailable'?'nocode':'timeout'))}},13000);
+    if(!peer||peer.destroyed){peer=new P(undefined,peerOpts());peer.on('error',function(e){lastErr=e&&e.type;if(onPeerErr)onPeerErr(e)})}
+    lastErr=null;var settled=false;
+    onPeerErr=function(e){if(e&&e.type==='peer-unavailable'&&!settled){settled=true;reject(new Error('nocode'))}};
+    var sigTimer=peer.open?null:setTimeout(function(){if(!settled){settled=true;reject(new Error('nosignal'))}},12000);
+    var go=function(){if(settled)return;if(sigTimer)clearTimeout(sigTimer);
+      var c=peer.connect('wil-'+code,{reliable:true});watchConn(c);
+      var to=setTimeout(function(){if(!settled){settled=true;try{c.close()}catch(e){}var er=new Error(lastErr==='peer-unavailable'?'nocode':'timeout');er.diag=diagString(c);reject(er)}},20000);
       c.on('open',function(){c.send({t:'hello',uid:uid})});
-      c.on('data',function(m){if(m&&m.t==='state'&&!done){done=true;clearTimeout(to);guestConn=c;resolve()}guestOnMsg(m)});
+      c.on('data',function(m){if(m&&m.t==='state'&&!settled){settled=true;clearTimeout(to);guestConn=c;resolve()}guestOnMsg(m)});
       c.on('close',function(){if(guestConn===c){guestConn=null;setPill('lost');scheduleReconnect()}});
       c.on('error',function(){})};
     if(peer.open)go();else peer.once('open',go);
@@ -2883,8 +2891,8 @@ function startHost(resumeCode,key,msg,btn){
   var attempt=function(){
     var p=new P('wil-'+code,peerOpts());
     p.on('open',function(){peer=p;isHost=true;WIL.host=true;WIL.code=code;
-      WIL.joinUrl=location.origin+location.pathname+(SIG?'?sig='+encodeURIComponent(SIG):'')+'#'+code;
-      WIL.qr=function(t){var q=qrcode(0,'M');q.addData(t);q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})};
+      WIL.localOnly=location.protocol==='file:';WIL.joinUrl=location.origin+location.pathname+(SIG?'?sig='+encodeURIComponent(SIG):'')+'#'+code;
+      WIL.qr=function(t){var q=qrcode(0,'M');q.addData(t);q.make();return q.createSvgTag({cellSize:4,margin:4,scalable:true})};
       if(resumeCode){try{var o=JSON.parse(localStorage.getItem('wil_host_'+code)||'{}');for(var k in o)store.set(k,o[k])}catch(e){}}
       try{localStorage.setItem('wil_last',code)}catch(e){}
       p.on('connection',hostConn);p.on('disconnected',function(){try{p.reconnect()}catch(e){}});
@@ -2904,7 +2912,8 @@ function joinNow(code){
   guestCode=code;
   show(E('h1',null,'Joining\u2026'),E('p',null,'Connecting to workshop '+code+'. This takes a few seconds.'));
   guestConnect(code).then(function(){gate.remove()},function(e){
-    show(E('h1',null,'Couldn\u2019t connect'),E('p',null,e&&e.message==='nocode'?'No workshop is open with the code '+code+'. Check the code, or ask the host to keep their tab open.':'The host didn\u2019t answer. Check your connection, that the host\u2019s tab is open, and try again. Some school and office Wi-Fi networks block this kind of connection: try mobile data.'),
+    var why=e&&e.message==='nocode'?'No workshop is open with the code '+code+'. Check the code, or ask the host to keep their tab open.':e&&e.message==='nosignal'?'Couldn\u2019t reach the connection service. Check your internet connection and try again.':'The host didn\u2019t answer. Make sure the host\u2019s tab is open and visible. If you are on the same Wi-Fi as the host, try switching your phone to mobile data (or the other way round): some Wi-Fi networks block direct connections between devices.';
+    show(E('h1',null,'Couldn\u2019t connect'),E('p',null,why),e&&e.diag?E('p',{class:'muted small'},'Details: '+e.diag):null,
       E('button',{class:'btn primary big',type:'button',onclick:function(){joinNow(code)}},'Try again'),E('button',{class:'btn ghost',type:'button',onclick:function(){guestCode=null;joinForm(code)}},'Use a different code'))})
 }
 var h=location.hash.replace('#','').trim().toUpperCase();
@@ -3590,12 +3599,31 @@ function openStationOverlay(dimId){
   const st=mountStation({uid:'local-'+dimId,lockDim:dimId,onClose:()=>{listeners.delete(st.update);st.cleanup();ov.remove()}});
   ov.append(st.el);document.body.append(ov);listeners.add(st.update);st.update();
 }
+function cleanAddr(v){v=String(v||'').trim();if(!/^https?:\/\//i.test(v))return'';return v.split('#')[0].split('?')[0]}
 function joinCard(){
   const w=window.__wil;
-  if(w&&w.host)return h('div',{class:'card',style:{display:'flex',gap:'18px',alignItems:'center',flexWrap:'wrap'}},
-    h('div',{style:{width:'140px',flex:'none'},html:w.qr(w.joinUrl)}),
-    h('div',{style:{display:'grid',gap:'6px',minWidth:'0',flex:'1'}},h('b',null,'Groups join here'),h('div',{class:'muted small'},'Scan the code with a phone camera, or open:'),h('div',{style:{fontWeight:'600',wordBreak:'break-all'}},w.joinUrl),h('div',{class:'muted small'},'Workshop code: '+w.code+'. Keep this tab open: it is the workshop\u2019s server.')));
-  return h('p',{class:'muted small'},DB?'Groups: open this same page on your phone and choose Group station.':'Single-screen mode: each group will take a turn on this device.');
+  if(!(w&&w.host))return h('p',{class:'muted small'},DB?'Groups: open this same page on your phone and choose Group station.':'Single-screen mode: each group will take a turn on this device.');
+  const wrap=h('div',{class:'card',style:{display:'grid',gap:'14px'}});
+  const local=!!w.localOnly;let pub='';try{pub=localStorage.getItem('wil_pub')||''}catch(e){}
+  const link=()=>{if(!local)return w.joinUrl;const v=cleanAddr(pub);return v?v+'#'+w.code:null};
+  function addrBox(){
+    const inp=h('input',{class:'input',placeholder:'https://your-page.netlify.app/',value:pub});
+    inp.addEventListener('change',()=>{pub=inp.value.trim();try{localStorage.setItem('wil_pub',pub)}catch(e){}render()});
+    return h('div',{style:{display:'grid',gap:'6px'}},
+      h('div',{class:'small',style:{color:'#a86a00',fontWeight:'600'}},'You opened a copy of the file from your computer, so a phone can\u2019t open its link yet.'),
+      h('div',{class:'muted small'},'Put the file online (Netlify Drop or GitHub Pages), then paste its public address here and the QR code will appear. Until then, groups can open the public page, choose Join with a code, and type the code.'),inp);
+  }
+  function render(){
+    const url=link();
+    const qr=url?h('div',{style:{width:'150px',flex:'none',background:'#fff',padding:'6px',borderRadius:'8px'},html:w.qr(url)}):null;
+    const info=h('div',{style:{display:'grid',gap:'6px',minWidth:'0',flex:'1'}},
+      h('b',null,'Groups join here'),
+      url?h('div',{class:'muted small'},'Scan the code with a phone camera, or open:'):null,
+      url?h('div',{style:{fontWeight:'600',wordBreak:'break-all'}},url):null,
+      h('div',{class:'muted small'},'Workshop code: '+w.code+'. Keep this tab open: it is the workshop\u2019s server.'));
+    wrap.replaceChildren(h('div',{style:{display:'flex',gap:'18px',alignItems:'center',flexWrap:'wrap'}},qr,info),local?addrBox():null);
+  }
+  render();return wrap;
 }
 function panelLobby(host){
   const slots=h('div',{class:'slots'});

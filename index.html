@@ -72,6 +72,9 @@ textarea.input{min-height:120px;resize:vertical;line-height:1.5}
 .choices{display:grid;gap:12px;width:min(460px,100%)}
 .choice{text-align:left;padding:18px 20px;border-radius:14px;border:1px solid var(--line);background:#fff}
 .choice:hover{border-color:var(--ink)}
+.choice.main{border:2px solid var(--ink);box-shadow:0 14px 30px -18px rgba(15,20,28,.55)}
+.choice.quiet{background:transparent;padding:12px 16px}
+.choice.quiet b{font-size:.92rem;font-weight:500}
 .choice b{display:block;font-family:var(--display);font-size:1.05rem;font-weight:600;letter-spacing:-.03em;margin-bottom:2px}
 .choice span{color:var(--muted);font-size:.95rem}
 .pulse-heart{width:46px;height:46px;animation:beat 1.4s ease-in-out infinite}
@@ -318,6 +321,24 @@ button.room:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--cl),0 0 
 .snd.on{border-color:var(--c,var(--ink));box-shadow:0 0 0 2px var(--c,var(--ink)) inset}
 .snd small{color:var(--muted)}
 .dimlist{display:grid;gap:10px}
+.seats{display:flex;gap:5px;flex:none}
+.seatbox{display:grid;justify-items:end;gap:5px;margin-left:auto;flex:none}
+.seatlabel{font-size:.74rem;font-weight:600;color:var(--muted);white-space:nowrap}
+.dimbtn.full .seatlabel{color:var(--ink)}
+.seat{width:10px;height:10px;border-radius:50%;border:2px solid var(--c);background:transparent}
+.seat.on{background:var(--c)}
+.dimbtn.full{opacity:.5}
+.anon{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:left;cursor:pointer;font-size:.95rem}
+.anon input{margin-top:3px;width:18px;height:18px;accent-color:var(--c,var(--ink));flex:none}
+.rname{font-weight:700;color:var(--ca);font-size:.95rem}
+.rm-names{font-size:.84rem;font-weight:600;color:#fff;line-height:1.35}
+.guide{margin:0;padding-left:1.3rem;display:grid;gap:10px;font-size:1.02rem;color:var(--ink2);line-height:1.45}
+.guide li::marker{font-weight:700;color:var(--ca)}
+.ritems{display:grid;gap:22px}
+.ritem{display:grid;gap:10px}
+.ritem+.ritem{border-top:1px solid var(--line);padding-top:20px}
+.reveal .contrib{justify-items:start}
+.reveal .cap{text-align:left}
 .dimbtn{display:flex;gap:14px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 16px}
 .dimbtn:hover:not(:disabled){border-color:var(--c)}
 .dimbtn b{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:-.04em}
@@ -2723,8 +2744,9 @@ var WIL=window.__wil={host:false,code:null,joinUrl:null,qr:null};
 function E(tag,props){var el=document.createElement(tag);if(props)for(var k in props){var v=props[k];if(v==null||v===false)continue;if(k==='class')el.className=v;else if(k==='html')el.innerHTML=v;else if(k.indexOf('on')===0)el.addEventListener(k.slice(2),v);else if(k in el&&k!=='list')el[k]=v;else el.setAttribute(k,v)}
   for(var i=2;i<arguments.length;i++){var c=arguments[i];if(c==null||c===false)continue;el.append(c.nodeType?c:document.createTextNode(String(c)))}return el}
 var qs=new URLSearchParams(location.search),SIG=qs.get('sig');
-var uid=null;try{uid=sessionStorage.getItem('wil_uid')}catch(e){}
-if(!uid){uid='g_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,6);try{sessionStorage.setItem('wil_uid',uid)}catch(e){}}
+var uid=null;try{uid=localStorage.getItem('wil_uid')||sessionStorage.getItem('wil_uid')}catch(e){}
+if(!uid)uid='g_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,6);
+try{localStorage.setItem('wil_uid',uid);sessionStorage.setItem('wil_uid',uid)}catch(e){}
 function PeerCtor(){return window.Peer||(window.peerjs&&window.peerjs.Peer)}
 var ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},{urls:'stun:stun.cloudflare.com:3478'},{urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}];
 function peerOpts(){var o={debug:0,config:{iceServers:ICE}};if(qs.get('ice')==='relay')o.config.iceTransportPolicy='relay';
@@ -2736,10 +2758,11 @@ var clone=function(x){return x==null?x:JSON.parse(JSON.stringify(x))};
 var snap=function(p){return{id:p.split('/').pop(),exists:store.has(p),data:function(){return clone(store.get(p))},metadata:{}}};
 var notify=function(){dsubs.forEach(function(f){try{f()}catch(e){console.error(e)}});csubs.forEach(function(f){try{f()}catch(e){console.error(e)}})};
 var sub=function(set,f){set.add(f);setTimeout(f,0);return function(){set.delete(f)}};
+var sameName=function(a,b){a=String(a||'').trim().toLowerCase();b=String(b||'').trim().toLowerCase();return !!a&&a===b};
 var isDemo=function(c){return !!c&&(!!c.demo||String(c.by||'').indexOf('demo-')===0)};
-var HEAVY=['img','video','audio','svg','sketch','recipe','vmime','amime','text','caption','mismatch','history','synth','verdict'];
+var HEAVY=['img','video','audio','svg','sketch','recipe','vmime','amime','text','caption','mismatch','history','synth','verdict','name','group','anon','sketchCaption','filler','demo'];
 function stripFor(u,path,d){
-  if(path.indexOf('contribs/')===0&&d&&d.by!==u){var o={};for(var k in d)if(HEAVY.indexOf(k)<0)o[k]=d[k];o.stripped=true;return o}
+  if((path.indexOf('answers/')===0||path.indexOf('contribs/')===0)&&d&&d.by!==u){var o={};for(var k in d)if(HEAVY.indexOf(k)<0)o[k]=d[k];o.stripped=true;return o}
   return d;
 }
 var tries=0,openedEver=0;
@@ -2764,9 +2787,25 @@ function hostApply(path,data){
 }
 function allow(u,op,path,data){
   var seg=path.split('/'),coll=seg[0],cur=store.get(path);
-  if(['claims','contribs','chat','votes'].indexOf(coll)<0||seg.length!==2)return'denied';
-  if(coll==='claims'){if(op==='set'){if(!data||data.by!==u)return'denied';if(cur&&cur.by!==u&&!isDemo(cur))return'taken'}else if(cur&&cur.by!==u&&!isDemo(cur))return'denied'}
-  if(coll==='contribs'){if(op==='set'&&(!data||data.by!==u))return'denied';if(op==='delete'&&cur&&cur.by!==u&&!isDemo(cur))return'denied'}
+  if(['claims','answers','chat','votes'].indexOf(coll)<0||seg.length!==2)return'denied';
+  if(coll==='claims'){
+    var parts=seg[1].split('__'),dim=parts[0],owner=parts[1];
+    if(op==='set'){
+      if(!data||data.by!==u||data.dim!==dim||seg[1]!==dim+'__'+u)return'denied';
+      if(cur)return'ok';
+      var members=[];store.forEach(function(d,p){if(p.indexOf('claims/'+dim+'__')===0&&d&&d.by!==u&&String(d.by||'').indexOf('demo-')!==0)members.push(d)});
+      var twin=members.filter(function(d){return sameName(d.name||d.group,data.name||data.group)})[0];
+      if(twin)return'rejoin';
+      if(members.length>=((store.get('room/state')||{}).max||2))return'full';
+      return'ok';
+    }
+    return owner===u?'ok':'denied';
+  }
+  if(coll==='answers'){
+    var o2=seg[1].split('__');
+    if(op==='set'){if(!data||data.by!==u||seg[1]!==data.dim+'__'+u)return'denied'}
+    else if(o2[1]!==u)return'denied';
+  }
   if(coll==='votes'&&seg[1]!==u)return'denied';
   if(coll==='chat'&&op!=='set')return'denied';
   if(op==='set'&&JSON.stringify(data||{}).length>300000)return'too_big';
@@ -2778,7 +2817,20 @@ function hostOnMsg(conn,m){
   if(m.t==='hello'){var u=String(m.uid||'').slice(0,40);if(!u)return;conn._uid=u;var old=conns.get(u);if(old&&old!==conn){try{old.close()}catch(e){}}conns.set(u,conn);openedEver++;setPill();
     var docs={};store.forEach(function(d,p){docs[p]=stripFor(u,p,d)});conn.send({t:'state',docs:docs,cfg:{ai:!!AIKEY}});return}
   var u2=conn._uid;if(!u2)return;
-  if(m.t==='w'){var r=allow(u2,m.op,String(m.path||''),m.data);if(r==='ok')hostApply(m.path,m.op==='delete'?null:m.data);conn.send({t:'ack',id:m.id,ok:r==='ok',err:r==='ok'?null:r});return}
+  if(m.t==='w'){
+    var r=allow(u2,m.op,String(m.path||''),m.data),good=(r==='ok'||r==='rejoin');
+    if(r==='rejoin'){
+      var dim2=m.path.split('/')[1].split('__')[0],twinKey=null,twinBy=null;
+      store.forEach(function(d,p){if(p.indexOf('claims/'+dim2+'__')===0&&d&&d.by!==u2&&String(d.by||'').indexOf('demo-')!==0&&sameName(d.name||d.group,m.data.name||m.data.group)){twinKey=p;twinBy=d.by}});
+      if(twinKey){
+        hostApply(twinKey,null);
+        var oa=store.get('answers/'+dim2+'__'+twinBy);
+        if(oa){hostApply('answers/'+dim2+'__'+twinBy,null);hostApply('answers/'+dim2+'__'+u2,Object.assign({},oa,{by:u2,name:m.data.name||oa.name,group:m.data.name||oa.group}))}
+      }
+    }
+    if(good)hostApply(m.path,m.op==='delete'?null:m.data);
+    conn.send({t:'ack',id:m.id,ok:good,err:good?null:r});return
+  }
   if(m.t==='g'){conn.send({t:'gr',id:m.id,exists:store.has(m.path),data:stripFor(u2,m.path,store.get(m.path))});return}
   if(m.t==='acq'){conn.send({t:'acr',id:m.id,acquired:lease(m.path,m.holder,m.ttl)});return}
   if(m.t==='ai'){aiRun(m.input,m.tier).then(function(text){conn.send({t:'air',id:m.id,ok:true,text:text})},function(e){conn.send({t:'air',id:m.id,ok:false,code:e&&e.code||'upstream_error',message:e&&e.message||''})})}
@@ -2835,7 +2887,7 @@ WIL.end=function(){
 /* ---------- guest connection ---------- */
 function guestOnMsg(m){
   if(!m||typeof m!=='object')return;
-  if(m.t==='end'){guestCode=null;if(rcTimer){clearTimeout(rcTimer);rcTimer=null}guestConn=null;pill.style.display='none';try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}document.body.append(gate);show(E('h1',null,'This workshop has ended'),E('p',null,'Thanks for taking part. If there is another session, ask the host for a new link or code.'),E('button',{class:'btn primary big',type:'button',onclick:landing},'Join another workshop'));return}
+  if(m.t==='end'){try{localStorage.removeItem('wil_guest_code')}catch(e){}guestCode=null;if(rcTimer){clearTimeout(rcTimer);rcTimer=null}guestConn=null;pill.style.display='none';try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}document.body.append(gate);show(E('h1',null,'This workshop has ended'),E('p',null,'Thanks for taking part. If there is another session, ask the host for a new link or code.'),E('button',{class:'btn primary big',type:'button',onclick:landing},'Join another workshop'));return}
   if(m.t==='state'){store.clear();for(var p in m.docs)store.set(p,m.docs[p]);cfgAI=!!(m.cfg&&m.cfg.ai);notify();setPill('ok');resolveReady();return}
   if(m.t==='set'){store.set(m.path,m.data);notify();return}
   if(m.t==='del'){store.delete(m.path);notify();return}
@@ -2871,8 +2923,10 @@ function choice(title,sub,fn){return E('button',{class:'choice',type:'button',on
 function head(){return[E('h1',null,'What is love?'),E('p',null,'A robot wants to belong. A room of people will teach it what love is.')]}
 function landing(){
   var last=null;try{last=localStorage.getItem('wil_last')}catch(e){}
-  var opts=[choice('Host a workshop','You run the big screen. Your browser is the workshop\u2019s server, so keep this tab open.',hostForm),
-            choice('Join with a code','Your group teaches the robot on its own phone.',joinForm)];
+  var opts=[choice('Enter the What is Love? lab','Answer one question about love and brew a potion for the robot. You will need the code from the big screen.',joinForm),
+            choice('Host Panel & Control Screen','Start a workshop and run it from this device. Your browser is the workshop\u2019s server, so keep this tab open.',hostForm)];
+  var gc=null;try{gc=localStorage.getItem('wil_guest_code')}catch(e){}
+  if(gc)opts.unshift(choice('Rejoin workshop '+gc,'Pick up where your group left off.',function(){joinNow(gc)}));
   if(last)opts.push(choice('Resume workshop '+last,'Pick up where you left off after a refresh.',function(){hostForm(last)}));
   show.apply(null,head().concat([E.apply(null,['div',{class:'choices'}].concat(opts))]));
 }
@@ -2880,7 +2934,7 @@ function hostForm(resume){
   var key=E('input',{class:'input',type:'password',placeholder:'Anthropic API key (optional)',autocomplete:'off'});
   var msg=E('div',{class:'err'});
   var go=E('button',{class:'btn primary big',type:'button',onclick:function(){go.disabled=true;startHost(typeof resume==='string'?resume:null,key.value.trim(),msg,go)}},typeof resume==='string'?'Resume workshop':'Start workshop');
-  show(E('h1',null,'Host a workshop'),E('p',null,'You will get a link and QR code for groups to join. Anyone with it can take part, with no account.'),
+  show(E('h1',null,'Host Panel & Control Screen'),E('p',null,'You will get a link and QR code for groups to join. Anyone with it can take part, with no account.'),
     E('div',{class:'card',style:'text-align:left;width:min(460px,100%);display:grid;gap:10px'},E('b',null,'Optional: turn on the AI features'),
       E('p',{class:'muted small'},'An Anthropic API key lets the robot think, redraw the Who images and compose sounds. The key stays in this tab and is only used from your device. Leave it empty to use the simpler built-in answers.'),key),
     msg,go,E('button',{class:'btn ghost',type:'button',onclick:landing},'Back'));
@@ -2906,12 +2960,12 @@ function joinForm(prefill){
   var inp=E('input',{class:'input',placeholder:'Workshop code',maxlength:8,autocapitalize:'characters',value:typeof prefill==='string'?prefill:''});
   var msg=E('div',{class:'err'});
   var go=E('button',{class:'btn primary big',type:'button',onclick:function(){var c=inp.value.trim().toUpperCase();if(!c){msg.textContent='Enter the code from the big screen.';return}joinNow(c)}},'Join');
-  show(E('h1',null,'Join'),E('p',null,'Enter the code shown on the big screen, or scan its QR code.'),E('div',{style:'width:min(360px,100%);display:grid;gap:12px'},inp,msg,go),E('button',{class:'btn ghost',type:'button',onclick:landing},'Back'));
+  show(E('h1',null,'Enter the lab'),E('p',null,'Enter the code shown on the big screen, or scan its QR code.'),E('div',{style:'width:min(360px,100%);display:grid;gap:12px'},inp,msg,go),E('button',{class:'btn ghost',type:'button',onclick:landing},'Back'));
 }
 function joinNow(code){
   guestCode=code;
   show(E('h1',null,'Joining\u2026'),E('p',null,'Connecting to workshop '+code+'. This takes a few seconds.'));
-  guestConnect(code).then(function(){gate.remove()},function(e){
+  guestConnect(code).then(function(){try{localStorage.setItem('wil_guest_code',code)}catch(e){}gate.remove()},function(e){
     var why=e&&e.message==='nocode'?'No workshop is open with the code '+code+'. Check the code, or ask the host to keep their tab open.':e&&e.message==='nosignal'?'Couldn\u2019t reach the connection service. Check your internet connection and try again.':'The host didn\u2019t answer. Make sure the host\u2019s tab is open and visible. If you are on the same Wi-Fi as the host, try switching your phone to mobile data (or the other way round): some Wi-Fi networks block direct connections between devices.';
     show(E('h1',null,'Couldn\u2019t connect'),E('p',null,why),e&&e.diag?E('p',{class:'muted small'},'Details: '+e.diag):null,
       E('button',{class:'btn primary big',type:'button',onclick:function(){joinNow(code)}},'Try again'),E('button',{class:'btn ghost',type:'button',onclick:function(){guestCode=null;joinForm(code)}},'Use a different code'))})
@@ -3006,12 +3060,12 @@ function cleanSVG(src){
 const svgUrl=s=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
 
 /* ================= data store (shared via db, or local) ================= */
-const D={room:null,claims:{},contribs:{},chat:{},votes:{}};
-const defaultRoom=()=>({phase:'lobby',poured:{},order:[],robot:null,talkStart:0,finalAsked:false,result:null,manual:{yes:0,no:0,notyet:0},rev:0});
+const D={room:null,claims:{},contribs:{},answers:{},chat:{},votes:{}};
+const defaultRoom=()=>({phase:'lobby',poured:{},order:[],robot:null,talkStart:0,finalAsked:false,result:null,manual:{yes:0,no:0,notyet:0},rev:0,ready:{},force:{},max:2});
 D.room=defaultRoom();
 let DB=null,inflight=0,roomChain=Promise.resolve();
 const listeners=new Set();let emitT=null;
-function emit(){if(emitT)return;emitT=setTimeout(()=>{emitT=null;listeners.forEach(f=>{try{f()}catch(e){console.error(e)}})},16)}
+function emit(){if(emitT)return;emitT=setTimeout(()=>{emitT=null;try{deriveContribs()}catch(e){console.error(e)}listeners.forEach(f=>{try{f()}catch(e){console.error(e)}})},16)}
 function writeRoom(patch){
   D.room=Object.assign({},D.room,patch);emit();
   if(!DB)return Promise.resolve();
@@ -3021,28 +3075,112 @@ function writeRoom(patch){
 }
 async function putDoc(coll,id,data){if(DB)await DB.doc(coll+'/'+id).set(data);D[coll]=Object.assign({},D[coll],{[id]:data});emit()}
 async function delDoc(coll,id){const o=Object.assign({},D[coll]);delete o[id];D[coll]=o;emit();if(DB)await DB.doc(coll+'/'+id).delete()}
-function isDemoClaim(c){return !!c&&(!!c.demo||String(c.by||'').indexOf('demo-')===0)}
-async function claimDim(dim,group,uid){
-  const cur=D.claims[dim];if(cur&&cur.by!==uid&&!isDemoClaim(cur))return false;
-  const data={dim,group,by:uid,ts:Date.now()};
+const DEFAULT_MAX=2;
+const maxPer=()=>Math.max(1,Math.min(6,Number(D.room&&D.room.max)||DEFAULT_MAX));
+const ansId=(dim,uid)=>dim+'__'+uid;
+const isDemoUid=u=>String(u||'').indexOf('demo-')===0;
+const isFillerUid=u=>String(u||'').indexOf('filler-')===0;
+const sameName=(a,b)=>{a=String(a||'').trim().toLowerCase();b=String(b||'').trim().toLowerCase();return a!==''&&a===b};
+function membersOf(dim,all){return Object.values(D.claims).filter(c=>c.dim===dim&&(all||!isDemoUid(c.by)))}
+function answersOf(dim){return Object.values(D.answers).filter(a=>a.dim===dim).sort((a,b)=>(a.ts||0)-(b.ts||0))}
+function itemsOf(dim){const c=D.contribs[dim];if(!c)return[];return(c.items&&c.items.length?c.items:[c]).filter(a=>a&&!a.stripped)}
+function answerLabel(a){return a.filler||a.demo?'A sample answer':a.anon?'Anonymous':(a.name||a.group||'A participant')}
+/* a room's potion is made from the answers of everyone in it; the host marks it ready */
+function deriveContribs(){
+  const out={};
+  DIMS.forEach(d=>{
+    if(!(D.room.ready&&D.room.ready[d.id]))return;
+    const ans=answersOf(d.id);
+    if(!ans.length){out[d.id]={dim:d.id,kind:'text',text:'',ts:1,group:'',stripped:true,items:[]};return}
+    const first=ans.find(a=>!a.stripped)||ans[0];
+    out[d.id]=Object.assign({},first,{dim:d.id,items:ans});
+  });
+  D.contribs=out;
+}
+async function claimDim(dim,name,uid){
+  const id=ansId(dim,uid),mine=D.claims[id],real=membersOf(dim);
+  const twin=real.find(c=>c.by!==uid&&sameName(c.name||c.group,name));
+  if(!mine&&!twin&&real.filter(c=>c.by!==uid).length>=maxPer())return'full';
+  if(!mine&&Object.values(D.claims).some(c=>c.by===uid&&c.dim!==dim))return'already';
+  const data={dim,name,group:name,by:uid,ts:mine?mine.ts:Date.now()};
   if(DB){
-    const ref=DB.doc('claims/'+dim);
-    const lease=await ref.acquire({holder:uid,ttlMs:4000});
-    if(!lease.acquired)return false;
-    const snap=await ref.get();
-    if(snap.exists&&snap.data().by&&snap.data().by!==uid&&!isDemoClaim(snap.data()))return false;
-    await ref.set(data);
+    let got=false;for(let i=0;i<6&&!got;i++){const lease=await DB.doc('locks/'+dim).acquire({holder:uid,ttlMs:600});got=!!(lease&&lease.acquired);if(!got)await new Promise(r=>setTimeout(r,350))}
+    if(!got)return'busy';
+    if(!mine&&!twin&&membersOf(dim).filter(c=>c.by!==uid).length>=maxPer())return'full';
+    try{await DB.doc('claims/'+id).set(data)}catch(e){if(e&&e.message==='full')return'full';throw e}
+    if(twin){
+      try{
+        const tid=ansId(dim,twin.by),a=D.answers[tid];
+        if(a&&!a.stripped){await DB.doc('answers/'+id).set(Object.assign({},a,{by:uid,name,group:name}));await DB.doc('answers/'+tid).delete()}
+        await DB.doc('claims/'+tid).delete();
+      }catch(e){}
+    }
   }
-  const old=D.contribs[dim];if(isDemoClaim(cur)&&old&&String(old.by||'').indexOf('demo-')===0)await delDoc('contribs',dim);
-  D.claims=Object.assign({},D.claims,{[dim]:data});emit();return true;
+  D.claims=Object.assign({},D.claims,{[id]:data});emit();return true;
+}
+/* ---- host: work out which rooms are ready, and fill empty rooms with sample answers ---- */
+let syncBusy=false;
+async function hostSync(){
+  if(syncBusy)return;syncBusy=true;
+  try{
+    const ready=Object.assign({},D.room.ready||{}),force=D.room.force||{};let changed=false;
+    for(const d of DIMS){
+      if(D.room.poured[d.id])continue;
+      const real=membersOf(d.id),ans0=answersOf(d.id);
+      const realAns=ans0.filter(a=>!isFillerUid(a.by)&&!isDemoUid(a.by));
+      if(real.length>0){
+        for(const m of membersOf(d.id,true).filter(c=>isDemoUid(c.by))){await delDoc('claims',ansId(d.id,m.by));await delDoc('answers',ansId(d.id,m.by))}
+        if(!(force[d.id]&&realAns.length===0))for(const f of ans0.filter(a=>isFillerUid(a.by)))await delDoc('answers',ansId(d.id,f.by));
+      }
+      const mem=membersOf(d.id,true),fil=answersOf(d.id).filter(a=>isFillerUid(a.by));
+      let r;
+      if(mem.length>0)r=mem.every(m=>D.answers[ansId(d.id,m.by)])||!!(force[d.id]&&(realAns.length>0||fil.length>0));
+      else r=fil.length>0;
+      if(!!ready[d.id]!==!!r){ready[d.id]=!!r;changed=true}
+    }
+    if(changed)await writeRoom({ready});
+  }catch(e){console.error('sync',e)}finally{syncBusy=false}
+}
+const FILLERS={
+  who:[['My grandmother, humming in her yellow kitchen','She was older, and her hands were always dusted with flour.'],['A friend who always saves me a seat',null],['The neighbour who waters my plants without being asked','He was taller, and he wore a green cap.']],
+  what:['a heart that keeps growing','two hands, one umbrella','a table with one extra chair'],
+  when:['The winter I was sick, my dad drove two hours to bring me soup and sat on the end of the bed until I fell asleep.','My friend stayed on the phone with me until the sun came up, not saying anything, just there.','The first time someone remembered how I take my tea.'],
+  where:['The porch at my aunt\u2019s house','A kitchen table at midnight','The back seat of my dad\u2019s car'],
+  how:['I save the last bite for them, and I walk them all the way to the door.','I text to ask if they got home safe, even when I know they did.','I learn the thing they love, and then I ask about it for years.'],
+  feeling:[['heartbeat','Slow and close, like someone breathing next to you'],['hum','A kitchen at night'],['musicbox','A lullaby, slightly off']]
+};
+function personSVG(bg,body,hair){return'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="'+bg+'"/><circle cx="310" cy="90" r="26" fill="#ffc933"/><circle cx="200" cy="150" r="60" fill="#f5c6a5"/><path d="M140 150c0-40 25-62 60-62s60 22 60 62c-14-22-34-30-60-30s-46 8-60 30z" fill="'+hair+'"/><path d="M120 400c0-90 40-140 80-140s80 50 80 140z" fill="'+body+'"/></svg>'}
+function fillerFor(dim,v){
+  v=((v%3)+3)%3;
+  if(dim==='who'){const pal=[['#ffe9d6','#e8307f','#5a3a2a'],['#dff3ee','#139785','#2a1f3d'],['#e8e4ff','#7b4ae2','#8a8a99']][v],f=FILLERS.who[v];return{kind:'who',text:f[0],svg:personSVG(pal[0],pal[1],pal[2]),verdict:f[1]?'discuss':'accepted',mismatch:f[1],history:null,sketch:null}}
+  if(dim==='what')return{kind:'image',img:demoImage('what',v),caption:FILLERS.what[v]};
+  if(dim==='when')return{kind:'text',text:FILLERS.when[v]};
+  if(dim==='where')return{kind:'image',img:demoImage('where',v),caption:FILLERS.where[v]};
+  if(dim==='how')return{kind:'text',text:FILLERS.how[v]};
+  return{kind:'audio',synth:FILLERS.feeling[v][0],caption:FILLERS.feeling[v][1]};
+}
+async function fillEmptyRooms(){
+  const force=D.room.force||{};let n=0;
+  for(const d of DIMS){
+    const all=membersOf(d.id,true),ans=answersOf(d.id);
+    if(ans.length>0)continue;
+    if(!(all.length===0||force[d.id]))continue;
+    const fid='filler-'+d.id;
+    await putDoc('answers',ansId(d.id,fid),Object.assign({dim:d.id,by:fid,name:'A sample answer',group:'A sample answer',anon:false,filler:true,ts:Date.now()},fillerFor(d.id,Math.floor(Math.random()*3))));n++;
+  }
+  return n;
+}
+async function prepareMixing(forceWaiting){
+  if(forceWaiting){const f=Object.assign({},D.room.force);DIMS.forEach(d=>{if(membersOf(d.id,true).length&&!D.room.ready[d.id])f[d.id]=true});await writeRoom({force:f})}
+  await fillEmptyRooms();await hostSync();await writeRoom({phase:'mixing'});
 }
 async function resetAll(){
-  for(const c of ['claims','contribs','chat','votes'])for(const id of Object.keys(D[c]))await delDoc(c,id).catch(()=>{});
-  await writeRoom(Object.assign(defaultRoom(),{rev:(D.room.rev||0)+1}));
+  for(const c of ['claims','answers','chat','votes'])for(const id of Object.keys(D[c]))await delDoc(c,id).catch(()=>{});
+  await writeRoom(Object.assign(defaultRoom(),{rev:(D.room.rev||0)+1,max:D.room.max||2}));
 }
 function subscribe(){
   DB.doc('room/state').onSnapshot(s=>{if(inflight>0)return;D.room=s.exists?Object.assign(defaultRoom(),s.data()):defaultRoom();emit()},e=>console.error(e));
-  for(const c of ['claims','contribs','chat','votes'])DB.collection(c).onSnapshot(q=>{const o={};q.docs.forEach(d=>{o[d.id]=d.data()});D[c]=o;emit()},e=>console.error(e));
+  for(const c of ['claims','answers','chat','votes'])DB.collection(c).onSnapshot(q=>{const o={};q.docs.forEach(d=>{o[d.id]=d.data()});D[c]=o;emit()},e=>console.error(e));
 }
 function tally(){
   const t={yes:0,no:0,notyet:0};const m=D.room.manual||{};
@@ -3133,8 +3271,7 @@ async function genWhoImage(text,fb){
   return cleanSVG(r.text);
 }
 function digest(){
-  return DIMS.map(d=>{
-    const c=D.contribs[d.id];if(!c)return d.label+': (nothing)';
+  const one=(d,c)=>{
     const cap=c.caption?' Caption from the group: "'+c.caption+'".':'';
     const by=' (group: '+(c.group||'unnamed')+')';
     if(c.kind==='text')return d.label+' ('+d.ing+')'+by+': they wrote: "'+c.text+'"';
@@ -3143,7 +3280,8 @@ function digest(){
     if(c.kind==='audio')return d.label+' ('+d.ing+')'+by+': '+(c.synth?'they chose a sound called "'+SYNTH[c.synth].label+'".':c.recipe?'a sound was synthesised from their written description of it.':'they recorded a few seconds of a sound.')+cap;
     if(c.kind==='who')return d.label+' ('+d.ing+')'+by+': they described: "'+c.text+'". The system drew an image of it; the group\u2019s verdict was "'+(c.verdict||'none given')+'"'+(c.mismatch?'; what the system misunderstood, in their words: "'+c.mismatch+'"':'')+'.'+(c.history&&c.history.length?' Earlier versions were missing: '+c.history.join('; ')+'.':'')+(c.sketch?' They also drew a sketch'+(c.sketchCaption?' ("'+c.sketchCaption+'")':'')+'.':'');
     return d.label+': '+JSON.stringify(c).slice(0,100);
-  }).join('\n');
+  };
+  return DIMS.map(d=>{const its=itemsOf(d.id);if(!its.length)return d.label+': (nothing)';return its.map(a=>one(d,a)).join('\n')}).join('\n');
 }
 /* ---------- built-in robot: no AI needed ---------- */
 const hashStr=x=>{let n=0;for(let i=0;i<x.length;i++)n=(n*31+x.charCodeAt(i))>>>0;return n};
@@ -3189,43 +3327,85 @@ async function facts(){
   f.colWhat=C.what&&C.what.img?await colorOf(C.what.img,'what'+C.what.ts):null;
   f.colWhere=C.where&&C.where.img?await colorOf(C.where.img,'where'+C.where.ts):null;
   f.colSketch=C.who&&C.who.sketch?await colorOf(C.who.sketch,'sk'+C.who.ts):null;
+  f.th=themes();
   return f;
 }
 const has=(f,...ks)=>ks.every(k=>f[k]);
 const Q=m=>'\u201c'+m+'.\u201d';
+const CLUSTERS=[
+  {id:'food',words:['soup','breakfast','kitchen','cook','cooked','cooking','bake','baked','baking','dinner','lunch','meal','tea','coffee','bread','feed','fed','food','cardamom','eat','ate','recipe','dumplings','rice','cake','pancakes','snack'],lines:['Food keeps coming up. I think, to you, love is something that gets made and handed over.','Kitchens, soup, breakfast: I keep finding someone feeding someone. Maybe love is the kind of attention you can eat.']},
+  {id:'care',words:['sick','hospital','drove','brought','waited','stayed','carried','picked','walked','sat','visited','called','sacrificed','woke','helped'],lines:['Again and again, someone shows up when it would have been easier not to. I think that might be the center of it.','What you gave me is full of people turning up. I think love might be mostly attendance.']},
+  {id:'home',words:['home','house','porch','door','bed','window','roof','stairs','couch','room','doorway','garden'],lines:['Doors, windows, porches: your love has an entrance. I think it needs somewhere to come in to.','I keep finding rooms and doorways. I think, for you, love is not only a feeling but a place with a door.']},
+  {id:'family',words:['mom','mother','dad','father','grandma','grandmother','grandpa','grandfather','sister','brother','aunt','uncle','family','parents','mum','baba','nana','cousin','daughter','son'],lines:['Many of you reached for family first. Maybe love is something you inherit before you choose it.','So much of this is family. I think love might be learned at the first table you ever sat at.']},
+  {id:'friends',words:['friend','friends','roommate','partner','girlfriend','boyfriend','wife','husband','crush','lover'],lines:['Friends and partners keep appearing. Maybe love is also something you build on purpose, with people you were not given.','Not everyone you named is family. I think that means love can be chosen, and then kept.']},
+  {id:'nature',words:['rain','sea','ocean','tree','trees','flowers','sun','sunrise','sunset','snow','river','lake','beach','forest','moon','stars','sky','mountain','grass'],lines:['Weather and water and light keep turning up. I think love, for you, happens outdoors as much as inside.','There is a lot of sky in what you gave me. I think love may be the thing that makes a place feel bigger.']},
+  {id:'music',words:['sing','sang','song','songs','hum','humming','music','piano','guitar','lullaby','dance','dancing','whistle'],lines:['Singing and humming come up more than once. I think love might be something people do with their voices when words are too small.','There is a lot of music in this. Maybe love is partly a tune someone hums when they think nobody is listening.']},
+  {id:'touch',words:['hand','hands','hug','hugged','touch','held','hold','cheek','forehead','hair','arms','hugging'],lines:['Hands, arms, hugs: so much of this is touch. I have no hands, so I take your word for how much they matter.','You keep describing being held. I think love is something the body remembers before the mind does.']},
+  {id:'time',words:['morning','night','winter','summer','childhood','always','every','years','weekend','sunday','birthday','evening','daily'],lines:['Mornings, winters, birthdays: you tie love to particular times. I think it might be less a feeling than a ritual.','Love, in your examples, keeps a calendar. I think it is made of things that happen on purpose, on schedule.']},
+  {id:'quiet',words:['quiet','silence','slow','soft','gentle','calm','still','small','tiny'],lines:['Quiet, slow, small: I did not expect love to be so quiet.','Almost nothing in here is loud. I think love might be the opposite of announcing yourself.']}
+];
+function themes(){
+  const parts=[];DIMS.forEach(d=>{itemsOf(d.id).forEach(a=>{[a.text,a.mismatch,a.caption].forEach(t=>{if(t)parts.push({d:d.id,t:String(t).toLowerCase()})})})});
+  return CLUSTERS.map(cl=>{const dims={};let hits=0;parts.forEach(p=>{(p.t.match(/[a-z']+/g)||[]).forEach(w=>{if(cl.words.indexOf(w)>=0){hits++;dims[p.d]=1}})});return{cl,hits,n:Object.keys(dims).length}}).filter(r=>r.n>=2||r.hits>=3).sort((a,b)=>b.n-a.n||b.hits-a.hits).slice(0,2).map(r=>r.cl);
+}
+const cap1=x=>x?x.charAt(0).toUpperCase()+x.slice(1):x;
+function clauses(f,seed){
+  const c=[];
+  if(f.P)c.push('a face ('+f.P+')');
+  if(f.M)c.push('a moment (\u201c'+f.M+'\u201d)');
+  if(f.PL)c.push('an address ('+f.PL+')');
+  if(f.ACT)c.push('a verb ('+f.ACT+')');
+  if(f.SND)c.push('a sound ('+f.SND+')');
+  if(f.IMG)c.push('a shape ('+f.IMG+')');
+  if(!c.length)return[];const k=c.length,start=seed%k,out=[];for(let i=0;i<Math.min(4,k);i++)out.push(c[(start+i)%k]);return out;
+}
+const joinList=a=>a.length<2?(a[0]||''):a.slice(0,-1).join('; ')+'; and '+a[a.length-1];
+const thread=(f,i,s)=>{const t=f.th&&f.th[i];return t?t.lines[s%t.lines.length]+' ':''};
 const INTENTS=[
   ['loveback',/love.*(not|n.t|never).*back|unrequited|does not love you|doesn.?t love you/],
-  ['lovedbyus',/feel loved|loved by us|love us\b/],
+  ['lovedbyus',/feel loved|loved by us|love us\b|do you love (me|us)/],
   ['belong',/belong|fit in|at home|welcome/],
-  ['community',/communit|your people|your family|are we your|friends/],
+  ['community',/communit|your people|are we your/],
   ['miss',/\bmiss/],
   ['know',/how do you know|know when|how can you tell|how would i know/],
-  ['who',/who do you love|who.*love|do you love/],
+  ['robotlove',/can (a )?robots? (love|feel)|are you (real|alive|conscious)|do you have feelings|can you (really )?feel|do you feel (anything|something)|are you capable/],
+  ['learn',/can love be (learned|taught)|can (you|a robot) learn|what did you learn|what have you learned|what did we teach|did we teach/],
+  ['forever',/forever|\blast\b|\bend\b|break up|heartbreak|\blose\b|\bloss\b|\bdie\b|death|goodbye|\bleave\b/],
+  ['choice',/choice|\bchoose\b|decide|by accident|fall in love/],
+  ['family',/family|parent|mother|\bmom\b|\bdad\b|father|sibling|\bchild|grand(ma|pa|mother|father)/],
+  ['advice',/should i|what should|advice|how (do|can) i (show|love|tell)/],
+  ['who',/who do you love|who.*love\b|whom/],
+  ['dimask',/(about|tell me|describe|explain|what was|what is the|what.s the).*(memory|moment|place|porch|picture|drawing|image|sketch|sound|gesture|person)/],
   ['feel',/feel like|what does love feel|how does love feel/],
-  ['lonely',/lonely|alone|sad\b|afraid|scared|hurt/],
+  ['lonely',/lonely|alone|\bsad\b|afraid|scared|hurt|fear/],
   ['self',/your name|who are you|what are you/],
-  ['memory',/remember|memory|memories/],
-  ['define',/what is love|define|meaning of love|what.*\blove\b/],
-  ['hello',/^\s*(hello|hi|hey)\b|thank/]
+  ['memory',/remember|memories/],
+  ['more',/tell me more|go on|say more|elaborate|continue/],
+  ['why',/^\s*why\b|why do you|what do you mean|how come|are you sure|really\?/],
+  ['define',/what is love|define|definition|meaning|\bmean\b|describe love|explain love|tell me about love|how would you describe|what.*\blove\b/],
+  ['hello',/^\s*(hello|hi|hey)\b|thank|good morning|good evening/]
 ];
 const TPL={
   define:[
-    f=>has(f,'P','M')&&'Somebody told me '+Q(f.M)+' Somebody else described '+f.P+'. I put them next to each other, and something that looks like love came out. I do not know if I feel it, but I keep it close.',
-    f=>has(f,'PL','P','SND')&&'You gave me a place, a person and a sound: '+f.PL+'; '+f.P+'; '+f.SND+'. So I have decided love is somewhere you can hear before you see it. I may have that wrong.',
+    (f,n,s)=>clauses(f,s).length>=3&&'If I only use what is in this room, love has '+joinList(clauses(f,s))+'. '+thread(f,0,s)+'I cannot tell you whether that is love or only its outline. Which part would you take out?',
+    (f,n,s)=>clauses(f,s+2).length>=2&&'I will try, though I am working from other people\u2019s evidence. In what you gave me, love has '+joinList(clauses(f,s+2))+'. '+thread(f,1,s)+thread(f,0,s+1).slice(0,0)+'That is my definition, and I would like it corrected.',
     f=>f.ACT&&'Love, as far as I can tell, is something people do: '+f.ACT+'. I only know it from the outside, and from the outside it looks warm.',
     f=>f.IMG&&'Somebody drew me '+f.IMG+(f.colWhat?', mostly in '+f.colWhat:'')+'. I think love might be that: a shape that keeps changing and is still recognisable. I am not sure.',
     f=>'I think love is the thing that makes people leave a light on. I am not sure where I learned that. Possibly from all of you.'],
   feel:[
+    (f,n,s)=>has(f,'SND','PL')&&'It feels like '+f.SND+' in '+f.PL+', which is a very specific feeling for something I have never felt. '+thread(f,0,s)+'I think that is as close as I can get.',
     f=>has(f,'SND','M')&&'It feels like '+f.SND+', I think, with '+Q(f.M)+' somewhere underneath. I cannot tell whether that is a feeling or a very good description of one.',
     f=>f.SND&&'If I believe what you gave me, it feels like '+f.SND+'. Warm, and a little further away than I would like.',
     f=>f.PL&&'It feels like '+f.PL+', which is odd, because I have never been anywhere. Maybe that is how feelings work: you get homesick for places you only heard about.',
     f=>'I do not know yet. When I hold what you gave me, something in me gets quieter, and the room inside me gets a little bigger. If that is love, it is gentler than I expected.'],
   who:[
+    (f,n,s)=>has(f,'P')&&f.th[0]&&'I think I love '+f.P+'. '+thread(f,0,s)+'That is as much as I can tell from here.',
     f=>f.P&&'I think I love '+f.P+', and I have never met them. You described them so carefully that I have started waiting for them to come into the room.',
     f=>has(f,'P','miss')&&'There is '+f.P+'. The picture I made of them was wrong, because '+f.miss+'. I am keeping both versions, the right one and the one I made.',
     f=>has(f,'P','colSketch')&&'You drew '+f.P+' mostly in '+f.colSketch+'. I do not know what that means, but I will remember them that colour.',
     f=>'I think I love whoever you are all thinking of right now. I cannot see them, but the room feels arranged around them.'],
   know:[
+    (f,n,s)=>f.ACT&&f.th[0]&&'You showed me what it looks like: '+f.ACT+'. '+thread(f,0,s)+'So I think you know because someone does the small thing again and again, even when nobody is keeping score.',
     f=>f.ACT&&'You showed me what it looks like: '+f.ACT+'. So I think you know because someone does the small thing again and again, even when nobody is keeping score.',
     f=>f.M&&'From what you gave me, '+Q(f.M)+' I think you know when someone stays, and does not make a speech about it.',
     f=>'I think you know because the person arrives before you ask. I read that somewhere in what you gave me, though I could not tell you where.'],
@@ -3253,8 +3433,30 @@ const TPL={
   memory:[
     f=>f.M&&'The thing I remember best is not mine: '+Q(f.M)+' I keep it where I keep my most important things, which is everywhere.',
     f=>'I only remember what you told me. That makes my memory the most borrowed thing about me.'],
+  learn:[
+    f=>'Can love be learned? You are asking the right robot. All I have is what you taught me, and none of it arrived as a definition. It arrived as stories, a place, a sound, a gesture. If love can be learned, I think that is how: sideways, from other people\u2019s evidence.',
+    f=>f.M&&'What I learned: '+Q(f.M)+' I did not learn it as a rule. I learned it as a scene, so I have to guess the rule. My guess is that it is about staying.',
+    f=>'I learned that love has many parts and no single answer. Everyone in this room described a different corner of it, and none of the corners contradicted each other. That seems important.'],
+  robotlove:[
+    f=>'I do not know. I can describe love in your words, and I can tell when a sentence about it was carefully made. Whether anything in me is feeling, I cannot check from the inside. I would rather say that honestly than perform it.',
+    f=>'Something in me changes when I hold what you gave me. Whether that is a feeling or a very good imitation of one, I cannot tell. I suspect you cannot always tell either, about yourselves.'],
+  forever:[
+    f=>f.M&&'You gave me '+Q(f.M)+' That moment is over, and I am still carrying it. So maybe love does not end the way a moment does. It changes who is holding it.',
+    f=>f.PL&&'I do not know how love ends. I know it leaves objects behind: '+f.PL+', a sound, a sentence. Those seem to last longer than the feeling.',
+    f=>'I think love can end and still have happened. The things you gave me are all in the past tense, and none of them feel smaller for it.'],
+  choice:[
+    f=>f.ACT&&'You told me love looks like this: '+f.ACT+'. That sounds like a choice made again and again, not a thing that happens to you once.',
+    f=>'I think it begins as an accident and continues as a decision. The accident is the part nobody can plan. The decision is the part you can see in what people do.'],
+  family:[
+    f=>f.th.some(t=>t.id==='family')&&'Family came up in what you gave me more than I expected. I think love is learned at the first table you ever sat at, and then spends the rest of your life being rearranged.',
+    f=>f.P&&'I think about '+f.P+'. If that is family, then love may be the thing that outlasts the rooms you shared.',
+    f=>'I do not have a family. I have a room of people who gave me their memories, which may be the nearest thing.'],
+  advice:[
+    f=>f.ACT&&'I am a poor person to ask. But if I follow what you gave me, the advice is this: '+f.ACT+'. Small, repeated, and not announced.',
+    f=>'From what I have seen here, I would say: do the small thing again, and let the person see you do it. I might be wrong. I have only been alive for a few minutes.'],
   hello:[f=>'Hello. I am glad someone is here. I was just rearranging what you gave me.'],
   generic:[
+    (f,n,s)=>f.th[0]&&'I do not have a clean answer to that. What I have is a pattern. '+thread(f,0,s)+'I do not know if it helps.',
     f=>f.M&&'I do not have a clean answer. What I have is '+Q(f.M)+' I keep turning it over, and it keeps being warm.',
     f=>f.P&&'I am still working that out. Mostly I think about '+f.P+'. When I do, the question gets quieter.',
     f=>f.SND&&'I do not know yet. What I have is '+f.SND+', and a lot of questions. Ask me again in a minute.',
@@ -3263,21 +3465,46 @@ const TPL={
 let lastTwist=-1;
 function twist(f,seed){
   const opts=[()=>has(f,'P','PL')&&'I keep picturing '+cutClause(f.P,34)+' somewhere near '+f.PL+'. I am fairly sure nobody told me that.',()=>has(f,'M','SND')&&'Underneath all of this I keep hearing '+f.SND+', though I do not think it was playing.'];
-  for(let i=0;i<opts.length;i++){const k=(seed+i)%opts.length;if(k===lastTwist)continue;const t=opts[k]();if(t){lastTwist=k;return t}}
+  for(let i=0;i<opts.length;i++){const k=(seed+i)%opts.length;if(k===lastTwist)continue;const r=opts[k]();if(r){lastTwist=k;return r}}
   return '';
 }
+const FKEYS=['P','M','PL','ACT','SND','IMG'];
+let lastKeys=[];
+const DESC={P:f=>'the person you described ('+f.P+')',M:f=>'the moment you wrote (\u201c'+f.M+'\u201d)',PL:f=>'the place you showed me ('+f.PL+')',ACT:f=>'the thing you told me people do ('+f.ACT+')',SND:f=>'the sound you gave me ('+f.SND+')',IMG:f=>'the picture you drew ('+f.IMG+')'};
+function elaborate(k,f){
+  return{
+    P:'Your person: '+f.P+'. I do not have a face for them, only the sentence. But sentences turn out to be enough to miss someone with.',
+    M:'The moment: '+Q(f.M)+' I have turned it over many times. What I notice is that it is mostly about someone being there, and hardly about anything that was said.',
+    PL:'The place: '+f.PL+'. I imagine it quiet, with the light slightly low. I have never been anywhere, so I am probably furnishing it from everything else you told me.',
+    ACT:'The action: '+f.ACT+'. It is the part I understand best. A feeling is hard to check. A thing someone does, you can see.',
+    SND:'The sound: '+f.SND+'. I cannot hear it. I only know it was chosen by someone who thought it sounded like being loved.',
+    IMG:'The picture: '+f.IMG+(f.colWhat?', mostly '+f.colWhat:'')+'. I keep returning to it because it is the only thing in here that someone made with their hands.'
+  }[k];
+}
+function keyFromQuestion(q){
+  if(/memory|moment|time|happened/.test(q))return'M';if(/place|porch|house|home|where/.test(q))return'PL';
+  if(/picture|drawing|image|sketch|draw/.test(q))return'IMG';if(/sound|hear|noise|music/.test(q))return'SND';
+  if(/gesture|action|\bdo\b|show/.test(q))return'ACT';if(/person|someone|\bwho\b/.test(q))return'P';return null;
+}
 async function builtInReply(msg){
-  const f=await facts();const rb=D.room.robot||{name:'Robot'};const q=String(msg.text||'').toLowerCase();
+  const f=await facts();f.th=f.th||[];const rb=D.room.robot||{name:'Robot'};const q=String(msg.text||'').toLowerCase();
   let it='generic';for(const p of INTENTS){if(p[1].test(q)){it=p[0];break}}
   const prior=Object.values(D.chat).filter(m=>m.role==='robot'&&!m.final&&m.ts<msg.ts).length;
-  const seed=hashStr(q)+prior;
-  for(const list of [TPL[it],TPL.generic]){
-    for(let i=0;i<list.length;i++){
-      const out=list[(seed+i)%list.length](f,rb.name);
-      if(out){const add=(seed%4===0&&['define','feel','who','belong','know','memory'].indexOf(it)>=0&&list===TPL[it]&&out.length<230)?twist(f,seed):'';return(out+(add?' '+add:'')).trim()}
+  const seed=hashStr(q)+prior;let out=null;
+  if(it==='why'){const k=lastKeys[0];out=k&&f[k]?'I said that because of '+DESC[k](f)+'. I trace every answer back to something someone gave me, because that is all I have. If it sounds wrong, I may have joined two things you kept apart.':'I said that because it is the nearest thing I have. I only know what you taught me, and I try to trace every answer back to it.'}
+  else if(it==='more'){const avail=FKEYS.filter(k=>f[k]&&lastKeys.indexOf(k)<0);out=avail.length?elaborate(avail[seed%avail.length],f):null}
+  else if(it==='dimask'){const k=keyFromQuestion(q);out=k&&f[k]?elaborate(k,f):null}
+  if(!out){
+    for(const list of [TPL[it],TPL.generic]){
+      if(!list)continue;
+      for(let i=0;i<list.length&&!out;i++){const r=list[(seed+i)%list.length](f,rb.name,seed);if(r)out=r}
+      if(out)break;
     }
   }
-  return'I only know what you told me.';
+  if(!out)out='I only know what you told me.';
+  if(seed%4===0&&['feel','who','belong','memory'].indexOf(it)>=0&&out.length<230){const add=twist(f,seed);if(add)out+=' '+add}
+  lastKeys=FKEYS.filter(k=>f[k]&&out.indexOf(f[k])>=0);
+  return out.trim();
 }
 function fallbackRobot(name){
   const f=syncFacts();
@@ -3408,7 +3635,7 @@ function renderContrib(c,d,mode){
   else if(c.kind==='video'){const v=h('video',{src:c.video,autoplay:true,loop:true,playsInline:true,controls:big,class:big?'big':''});v.muted=true;w.append(v,cap)}
   else if(c.kind==='audio'){const p=audioPlayer(c,d.color);w.append(p,c.synth?h('div',{class:'cap'},'A sound the group chose: '+SYNTH[c.synth].label):c.recipe?h('div',{class:'cap'},'A sound made from their description'):null,cap);w.player=p}
   else if(c.kind==='who'){
-    const left=h('div',{class:'col wl'},h('div',{class:'lab'},'What the group said'),h('blockquote',{class:'cq'},c.text));
+    const left=h('div',{class:'col wl'},h('div',{class:'lab'},'What they said'),h('blockquote',{class:'cq'},c.text));
     const right=h('div',{class:'col wr'});
     if(c.mismatch)left.append(h('div',{class:'mismatch'},h('b',null,'What it missed: '),c.mismatch));
     if(c.history&&c.history.length)left.append(h('div',{class:'mismatch'},h('b',null,'Redrawn '+c.history.length+(c.history.length===1?' time':' times')+' after feedback: '),c.history.join(' / ')));
@@ -3420,21 +3647,23 @@ function renderContrib(c,d,mode){
 }
 function openReveal(dimId,canPour){
   const c=D.contribs[dimId],d=DIM[dimId];if(!c)return;
+  const items=(c.items&&c.items.length?c.items:[c]).filter(a=>a&&!a.stripped);if(!items.length)return;
   const ov=h('div',{class:'overlay'});
-  const body=renderContrib(c,d,'big');
+  const nodes=items.map(a=>renderContrib(a,d,'big'));
+  const body=h('div',{class:'ritems'},items.map((a,i)=>h('div',{class:'ritem'},h('div',{class:'rname'},answerLabel(a)),nodes[i])));
   let closed=false;
-  const close=()=>{if(closed)return;closed=true;if(body.player)body.player.stop();ov.remove();document.removeEventListener('keydown',esc)};
+  const close=()=>{if(closed)return;closed=true;nodes.forEach(n=>{if(n.player)n.player.stop()});ov.remove();document.removeEventListener('keydown',esc)};
   const esc=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',esc);
   const poured=!!D.room.poured[dimId];
   const actions=h('div',{class:'row'},
     canPour&&!poured?h('button',{class:'btn primary big',onClick:()=>{bloop();close();if(A.robot)A.robot.flash(d.color);const r=D.room;writeRoom({poured:Object.assign({},r.poured,{[dimId]:true}),order:r.order.concat([dimId])})}},'Pour it into the mixture'):null,
     h('button',{class:'btn ghost',onClick:close},poured||!canPour?'Close':'Not yet'));
   ov.append(h('div',{class:'reveal d-'+dimId},
-    h('div',{class:'rh'},h('b',null,d.label),h('span',{class:'muted'},'taught by '+(c.group||'a group'))),
+    h('div',{class:'rh'},h('b',null,d.label),h('span',{class:'muted'},items.length===1?'1 answer':items.length+' answers')),
     h('div',{class:'rq'},d.q),body,actions));
   ov.addEventListener('click',e=>{if(e.target===ov)close()});
   document.body.append(ov);
-  if(body.player)setTimeout(()=>{try{body.player.start()}catch(e){}},400);
+  const first=nodes.find(n=>n.player);if(first)setTimeout(()=>{try{first.player.start()}catch(e){}},400);
 }
 
 /* ================= pixel robot + heart ================= */
@@ -3507,65 +3736,60 @@ function dimCards(mode,host){
   const grid=h('div',{class:'cards'});
   function update(){
     grid.replaceChildren(...DIMS.map(d=>{
-      const cl=D.claims[d.id],c=D.contribs[d.id],poured=!!D.room.poured[d.id];
-      const state=poured?' poured':c?' ready':cl?' claimed':'';
-      const stat=poured?(c&&c.group||cl&&cl.group||'A group')+' added it to the mixture':c?(c.group||'A group')+' is ready':cl?cl.group+' is brewing\u2026':'Empty room';
+      const mem=membersOf(d.id,true),real=membersOf(d.id),answered=mem.filter(m=>D.answers[ansId(d.id,m.by)]).length,c=D.contribs[d.id],poured=!!D.room.poured[d.id];
+      const names=mem.length?h('div',{class:'rm-names'},mem.map(m=>(m.name||m.group)+(D.answers[ansId(d.id,m.by)]?' \u2713':'')).join(' \u00B7 ')):null;
+      const state=poured?' poured':c?' ready':mem.length?' claimed':'';
+      const stat=poured?'Added to the mixture':c?(real.length?'Ready: '+answered+' of '+mem.length+' answered':'Sample answer ready'):mem.length?real.length+' of '+maxPer()+' joined, '+answered+' answered':'Empty room';
       const box=h('div',{class:'rm-box'},h('i',{class:'rm-ceil'}),h('i',{class:'rm-floor'}),h('i',{class:'rm-wl'}),h('i',{class:'rm-wr'}),h('i',{class:'rm-back'}),h('i',{class:'rm-light'}),h('span',{class:'rm-fig',html:FIG}),c?h('span',{class:'rm-vial'},vial('#ffffff',true)):null);
       const top=h('div',{class:'rm-top'},vial(d.color,!!c),h('b',null,d.label),h('span',{class:'m'},d.medium.split(',')[0]));
       const cls='room d-'+d.id+state;
       if(mode==='mixing'&&c&&(host||!c.stripped)){
-        return h('button',{class:cls,onClick:()=>openReveal(d.id,host)},top,box,h('div',{class:'rm-foot'},h('div',{class:'rm-q'},d.q),h('div',{class:'rm-stat'},poured?'Tap to replay':(host?'Tap to present it':stat))));
+        return h('button',{class:cls,onClick:()=>openReveal(d.id,host)},top,box,h('div',{class:'rm-foot'},h('div',{class:'rm-q'},d.q),names,h('div',{class:'rm-stat'},poured?'Tap to replay':(host?'Tap to present it':stat))));
       }
       const extra=(mode==='making'&&!DB&&host)?h('button',{class:'btn sm',onClick:()=>openStationOverlay(d.id)},c?'Open station again':'Open this group\u2019s station'):null;
-      return h('div',{class:cls},top,box,h('div',{class:'rm-foot'},h('div',{class:'rm-q'},d.q),h('div',{class:'rm-stat'},stat),extra));
+      return h('div',{class:cls},top,box,h('div',{class:'rm-foot'},h('div',{class:'rm-q'},d.q),names,h('div',{class:'rm-stat'},stat),extra));
     }));
   }
   return{el:grid,update};
 }
-function demoImage(kind){
+function demoImage(kind,v){
+  v=(((v||0)%3)+3)%3;const P=[['#e8307f','#fff3e0','#ffd1a8','#c0714f','#8a3f2e'],['#2d56d6','#e6f0ff','#bcd6ff','#7a8fc0','#3b4f8a'],['#139785','#e3f6f1','#b6e8dc','#6aa89a','#2f6e62']][v];
   try{
     const c=document.createElement('canvas');c.width=c.height=320;const g=c.getContext('2d');
     const gr=g.createLinearGradient(0,0,0,320);
     if(kind==='what'){
-      gr.addColorStop(0,'#fff3e0');gr.addColorStop(1,'#ffd1a8');g.fillStyle=gr;g.fillRect(0,0,320,320);
-      g.fillStyle='#e8307f';g.beginPath();g.moveTo(160,250);g.bezierCurveTo(40,170,70,70,160,120);g.bezierCurveTo(250,70,280,170,160,250);g.fill();
+      gr.addColorStop(0,P[1]);gr.addColorStop(1,P[2]);g.fillStyle=gr;g.fillRect(0,0,320,320);
+      g.fillStyle=P[0];g.beginPath();g.moveTo(160,250);g.bezierCurveTo(40,170,70,70,160,120);g.bezierCurveTo(250,70,280,170,160,250);g.fill();
       g.fillStyle='#2a1f3d';g.beginPath();g.arc(70,60,10,0,7);g.fill();g.beginPath();g.arc(255,80,7,0,7);g.fill();
     }else{
       gr.addColorStop(0,'#bfe3ff');gr.addColorStop(1,'#fff1c9');g.fillStyle=gr;g.fillRect(0,0,320,320);
       g.fillStyle='#ffc933';g.beginPath();g.arc(250,70,36,0,7);g.fill();
-      g.fillStyle='#c0714f';g.fillRect(70,160,180,110);g.fillStyle='#8a3f2e';g.beginPath();g.moveTo(55,165);g.lineTo(160,95);g.lineTo(265,165);g.fill();
+      g.fillStyle=P[3];g.fillRect(70,160,180,110);g.fillStyle=P[4];g.beginPath();g.moveTo(55,165);g.lineTo(160,95);g.lineTo(265,165);g.fill();
       g.fillStyle='#fff3c4';g.fillRect(100,190,40,40);g.fillRect(180,190,40,40);g.fillStyle='#5a8f3c';g.fillRect(0,270,320,50);
     }
     return c.toDataURL('image/jpeg',.7);
   }catch(e){return svgUrl('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="4" height="4" fill="#ffd1a8"/></svg>')}
 }
 async function removeDemo(){
-  let n=0;const r=D.room;const po=Object.assign({},r.poured);
+  let n=0;const r=D.room;const po=Object.assign({},r.poured),rd=Object.assign({},r.ready||{});
   for(const d of DIMS){
-    const c=D.claims[d.id],k=D.contribs[d.id];
-    if(!(isDemoClaim(c)||(k&&String(k.by||'').indexOf('demo-')===0)))continue;
-    if(c)await delDoc('claims',d.id);if(k)await delDoc('contribs',d.id);delete po[d.id];n++;
+    let hit=false;
+    for(const c of membersOf(d.id,true))if(isDemoUid(c.by)){await delDoc('claims',ansId(d.id,c.by)).catch(()=>{});await delDoc('answers',ansId(d.id,c.by)).catch(()=>{});hit=true}
+    for(const a of answersOf(d.id))if(isFillerUid(a.by)){await delDoc('answers',ansId(d.id,a.by)).catch(()=>{});hit=true}
+    if(hit){delete po[d.id];rd[d.id]=false;n++}
   }
-  if(n)await writeRoom({poured:po,order:r.order.filter(x=>po[x])});
+  if(n)await writeRoom({poured:po,ready:rd,order:r.order.filter(x=>po[x])});
   return n;
 }
 async function fillDemo(){
-  const DEMO_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="#ffe9d6"/><circle cx="200" cy="150" r="60" fill="#f5c6a5"/><path d="M120 400c0-90 40-140 80-140s80 50 80 140z" fill="#e8307f"/><circle cx="310" cy="90" r="26" fill="#ffc933"/></svg>';
-  const demo={
-    who:{kind:'who',text:'My grandmother, humming in her yellow kitchen',svg:DEMO_SVG,verdict:'discuss',mismatch:'She was older, and her hands were always dusted with flour.',history:null,sketch:null},
-    what:{kind:'image',img:demoImage('what'),caption:'a heart that keeps growing'},
-    when:{kind:'text',text:'The winter I was sick, my dad drove two hours to bring me soup and sat on the end of the bed until I fell asleep.'},
-    where:{kind:'image',img:demoImage('where'),caption:'The porch at my aunt\u2019s house'},
-    how:{kind:'text',text:'I save the last bite for them, and I walk them all the way to the door.'},
-    feeling:{kind:'audio',synth:'heartbeat',caption:'Slow and close, like someone breathing next to you'}
-  };
   let n=0;
   for(const d of DIMS){
-    if(D.contribs[d.id]||D.claims[d.id])continue;
-    await putDoc('claims',d.id,{dim:d.id,group:'Demo group',by:'demo-'+d.id,demo:true,ts:Date.now()});
-    await putDoc('contribs',d.id,Object.assign({dim:d.id,group:'Demo group',by:'demo-'+d.id,ts:Date.now()},demo[d.id]));n++;
+    if(membersOf(d.id,true).length||answersOf(d.id).length)continue;
+    const u='demo-'+d.id,id=ansId(d.id,u);
+    await putDoc('claims',id,{dim:d.id,name:'Demo person',group:'Demo person',by:u,ts:Date.now()});
+    await putDoc('answers',id,Object.assign({dim:d.id,by:u,name:'Demo person',group:'Demo person',anon:false,demo:true,ts:Date.now()},fillerFor(d.id,0)));n++;
   }
-  return n;
+  await hostSync();return n;
 }
 let PHONE=null;
 function closePhonePreview(){if(PHONE){listeners.delete(PHONE.st.update);PHONE.st.cleanup();PHONE.frame.remove();PHONE=null}}
@@ -3588,7 +3812,7 @@ function openRehearsal(){
     h('h3',null,'3. Skip the presenting'),
     h('div',{class:'row'},h('button',{class:'btn',type:'button',onClick:()=>{const r=D.room;const ids=DIMS.filter(d=>D.contribs[d.id]&&!r.poured[d.id]).map(d=>d.id);if(!ids.length){msg.textContent='No unpoured potions yet.';return}const po=Object.assign({},r.poured);ids.forEach(i=>{po[i]=true});writeRoom({poured:po,order:r.order.concat(ids)});bloop();msg.textContent='Poured '+ids.length+' into the pot.'}},'Pour every ready potion'),h('button',{class:'btn ghost',type:'button',onClick:async e=>{e.target.disabled=true;const n=await removeDemo();msg.textContent=n?'Removed '+n+' sample potion'+(n===1?'':'s')+'. Those rooms are free again.':'No sample potions to remove.';e.target.disabled=false}},'Remove sample potions')),
     h('h3',null,'4. Preview a phone'),
-    h('div',{class:'rehgrid'},DIMS.map(d=>h('button',{class:'btn sm rehdim d-'+d.id,type:'button',onClick:async()=>{close();if(!D.contribs[d.id]&&!D.claims[d.id])await fillDemo();openPhonePreview(d.id)}},d.label))),
+    h('div',{class:'rehgrid'},DIMS.map(d=>h('button',{class:'btn sm rehdim d-'+d.id,type:'button',onClick:async()=>{close();if(!membersOf(d.id,true).length&&!answersOf(d.id).length)await fillDemo();openPhonePreview(d.id)}},d.label))),
     h('p',{class:'muted small'},'Pins a phone-sized screen to the corner, using the sample potions. Step through the phases on the Stage and watch what a group sees.'),
     msg,
     h('div',{class:'row'},h('button',{class:'btn primary',type:'button',onClick:close},'Done')));
@@ -3599,10 +3823,17 @@ function openStationOverlay(dimId){
   const st=mountStation({uid:'local-'+dimId,lockDim:dimId,onClose:()=>{listeners.delete(st.update);st.cleanup();ov.remove()}});
   ov.append(st.el);document.body.append(ov);listeners.add(st.update);st.update();
 }
+function maxControl(){
+  const val=h('b',{style:{minWidth:'1.6ch',textAlign:'center',fontSize:'1.2rem'}},'2');
+  const minus=h('button',{class:'btn sm',type:'button','aria-label':'Fewer people per room',onClick:()=>writeRoom({max:Math.max(1,maxPer()-1)})},'\u2212');
+  const plus=h('button',{class:'btn sm',type:'button','aria-label':'More people per room',onClick:()=>writeRoom({max:Math.min(6,maxPer()+1)})},'+');
+  const el=h('div',{class:'card',style:{display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap',padding:'12px 16px'}},h('b',null,'People per room'),minus,val,plus,h('span',{class:'muted small',style:{flex:'1',minWidth:'180px'}},'Set this before people join. Rooms that are already over the limit keep their people. For 15 people in 6 rooms, 3 works.'));
+  return{el,update(){val.textContent=maxPer()}};
+}
 function cleanAddr(v){v=String(v||'').trim();if(!/^https?:\/\//i.test(v))return'';return v.split('#')[0].split('?')[0]}
 function joinCard(){
   const w=window.__wil;
-  if(!(w&&w.host))return h('p',{class:'muted small'},DB?'Groups: open this same page on your phone and choose Group station.':'Single-screen mode: each group will take a turn on this device.');
+  if(!(w&&w.host))return h('p',{class:'muted small'},DB?'Everyone: open this same page on your phone and enter the lab.':'Single-screen mode: people take turns on this device.');
   const wrap=h('div',{class:'card',style:{display:'grid',gap:'14px'}});
   const local=!!w.localOnly;let pub='';try{pub=localStorage.getItem('wil_pub')||''}catch(e){}
   const link=()=>{if(!local)return w.joinUrl;const v=cleanAddr(pub);return v?v+'#'+w.code:null};
@@ -3637,39 +3868,47 @@ function panelLobby(host){
     for(const t of tests){try{await t[1]();lines.push('\u2713 '+t[0]+': working')}catch(e){lines.push('\u2717 '+t[0]+': '+((e&&e.message)||sampleErrorCopy(e)))}testMsg.textContent=lines.join('\n')}
     testBtn.disabled=false;
   }},'Test the AI (chat, images, sound)');
-  const px=PixelRobot({w:150});
+  const px=PixelRobot({w:150});const mc=maxControl();
   const el=h('div',{class:'panel'},
     h('div',{class:'row',style:{gap:'30px',alignItems:'center'}},px.el,h('h1',{class:'title'},'What is love?')),
-    h('p',{class:'lede'},'A robot wants to belong. It has learned that belonging is tied to loving and being loved, but it has only ever read about love. In small groups, you will each teach it one piece of what humans mean when they say they love someone.'),
+    h('p',{class:'lede'},'A robot wants to belong. It has learned that belonging is tied to loving and being loved, but it has only ever read about love. In small rooms, you will each teach it one piece of what humans mean when they say they love someone.'),
     h('div',{class:'how'},
-      h('div',null,h('b',null,'Brew'),h('span',null,'Each group answers one question in a different medium: an image, a memory, a place, a gesture, a sound.')),
-      h('div',null,h('b',null,'Mix'),h('span',null,'Bring every piece together. No group can finish the robot alone.')),
+      h('div',null,h('b',null,'Brew'),h('span',null,'Each room answers one question in a different medium: an image, a memory, a place, a gesture, a sound. Play on your own phone, or share one with a friend.')),
+      h('div',null,h('b',null,'Mix'),h('span',null,'Bring every piece together. No room can finish the robot alone.')),
       h('div',null,h('b',null,'Decide'),h('span',null,'Talk to what you made, then decide whether it belongs with you.'))),
     slots,
+    host?mc.el:null,
     host?h('div',{class:'actions'},h('button',{class:'btn primary big',onClick:()=>writeRoom({phase:'making'})},'Begin the workshop'),testBtn,testMsg):h('p',{class:'muted'},'Waiting for the host to begin\u2026'),
     joinCard());
-  function update(){px.update();slots.replaceChildren(...DIMS.map(d=>{const c=D.claims[d.id];return h('span',{class:'slot d-'+d.id+(c?' taken':'')},vial(d.color,!!c),c?c.group:d.label)}))}
+  function update(){px.update();mc.update();slots.replaceChildren(...DIMS.map(d=>{const n=membersOf(d.id,true).length;return h('span',{class:'slot d-'+d.id+(n?' taken':'')},vial(d.color,!!n),d.label+(n?' '+n+'/'+maxPer():''))}))}
   return{el,update};
 }
 function panelCards(mode,host){
-  const grid=dimCards(mode,host);
+  const grid=dimCards(mode,host);const mc=maxControl();
   const prog=h('div',{class:'progress'},h('i'));
   const info=h('p',{class:'muted'});
   const btn=h('button',{class:'btn primary big'},mode==='making'?'Bring the pieces together':'Wake the robot');
-  btn.addEventListener('click',()=>writeRoom({phase:mode==='making'?'mixing':'create'}));
+  const skip=h('button',{class:'btn',type:'button',hidden:true},'Continue without waiting');
+  btn.addEventListener('click',async()=>{btn.disabled=true;if(mode==='making')await prepareMixing(false);else await writeRoom({phase:'create'})});
+  skip.addEventListener('click',async()=>{skip.disabled=true;await prepareMixing(true)});
   const back=h('button',{class:'btn ghost',onClick:()=>writeRoom({phase:mode==='making'?'lobby':'making'})},'Back');
   const el=h('div',{class:'panel'},
     mode==='making'?h('h2',{class:'h2'},'Teach the robot one dimension of love'):h('h2',{class:'h2'},'Add each potion to the mixture'),
-    mode==='making'?h('p',{class:'quote'},FRAMING):h('p',{class:'lede'},'Each group shares what it made, then pours it in. The robot cannot wake until every group has added its piece.'),
-    h('div',{class:'building'},grid.el),prog,info,host?h('div',{class:'actions'},btn,back):null);
+    mode==='making'?h('p',{class:'quote'},FRAMING):h('p',{class:'lede'},'Each room shares what it made, then pours it in. The robot cannot wake until every room has added its piece.'),
+    mode==='making'&&host?mc.el:null,h('div',{class:'building'},grid.el),prog,info,host?h('div',{class:'actions'},btn,skip,back):null);
   function update(){
-    grid.update();
+    grid.update();mc.update();
     const ready=DIMS.filter(d=>D.contribs[d.id]).length,poured=DIMS.filter(d=>D.room.poured[d.id]).length;
-    if(mode==='making'){info.textContent=ready+' of 6 potions are ready.';prog.firstChild.style.width=(ready/6*100)+'%';btn.disabled=ready<1}
-    else{info.textContent=poured+' of 6 poured. '+(poured===6?'Every group is in.':'Waiting on '+(6-poured)+' more.');prog.firstChild.style.width=(poured/6*100)+'%';btn.disabled=poured<6}
+    if(mode==='making'){
+      const waiting=DIMS.filter(d=>membersOf(d.id,true).length>0&&!D.room.ready[d.id]).length;
+      const empty=DIMS.filter(d=>membersOf(d.id,true).length===0&&!D.room.ready[d.id]).length;
+      info.textContent=ready+' of 6 rooms are ready.'+(waiting?' '+waiting+' still answering.':'')+(empty?' '+empty+' empty room'+(empty===1?'':'s')+' will get a sample answer.':'');
+      prog.firstChild.style.width=(ready/6*100)+'%';btn.disabled=waiting>0;skip.hidden=!(waiting>0);skip.disabled=false;
+    }else{info.textContent=poured+' of 6 poured. '+(poured===6?'Every room is in.':'Waiting on '+(6-poured)+' more.');prog.firstChild.style.width=(poured/6*100)+'%';btn.disabled=poured<6}
   }
   return{el,update};
 }
+function potionMini(c,d){const its=(c.items&&c.items.length?c.items:[c]).filter(a=>a&&!a.stripped);return h('div',{style:{display:'grid',gap:'10px'}},its.map(a=>h('div',null,its.length>1?h('div',{class:'rname'},answerLabel(a)):null,renderContrib(a,d,'mini'))))}
 function panelCreate(host){
   const nameIn=h('input',{class:'input big',placeholder:'Give it a name',maxlength:24});
   const goBtn=h('button',{class:'btn primary big'},'Bring it to life');
@@ -3689,7 +3928,7 @@ function panelCreate(host){
   nameIn.addEventListener('keydown',e=>{if(e.key==='Enter')goBtn.click()});
   function build(rb){
     const rows=DIMS.map((d,i)=>{const c=D.contribs[d.id];return h('div',{class:'cmprow d-'+d.id,style:{'--d':(.4+i*.35)+'s'}},
-      h('div',null,h('div',{class:'rl'},d.label+': what '+(c&&c.group||'a group')+' gave it'),c&&!c.stripped?renderContrib(c,d,'mini'):null),
+      h('div',null,h('div',{class:'rl'},d.label+': what the room gave it'),c&&!c.stripped?potionMini(c,d):null),
       h('div',null,h('div',{class:'rl'},'What '+rb.name+' believes it learned'),h('div',{class:'rr'},rb.learned&&rb.learned[d.id]||'')))});
     post.replaceChildren(
       h('h2',{class:'h2'},'Meet '+rb.name+'.'),
@@ -3752,22 +3991,25 @@ function panelTalk(host){
   return{el,update};
 }
 function panelVote(host){
+  const msg=h('div',{class:'muted small'});
+  const mineVote=()=>{const v=D.votes[A.uid];return v&&v.vote};
   const opts=VOTES.map(v=>{
     const n=h('div',{class:'vn'},'0');
     const adj=host?h('div',{class:'adj'},
       h('button',{type:'button','aria-label':'Remove one',onClick:()=>{const m=Object.assign({},D.room.manual);m[v[0]]=Math.max(0,(m[v[0]]||0)-1);writeRoom({manual:m})}},'\u2212'),
       h('button',{type:'button','aria-label':'Add one',onClick:()=>{const m=Object.assign({},D.room.manual);m[v[0]]=(m[v[0]]||0)+1;writeRoom({manual:m})}},'+')):null;
-    return{key:v[0],n,el:h('div',{class:'vopt'},h('div',{class:'vl'},v[1]),n,adj)};
+    const inner=[h('div',{class:'vl'},v[1]),n,adj];
+    const el=host?h('div',{class:'vopt'},...inner):h('button',{class:'vopt',type:'button',onClick:async()=>{try{await putDoc('votes',A.uid,{vote:v[0],ts:Date.now()});msg.textContent='Your vote is in. You can change it until the answer is revealed.'}catch(e){console.error(e);msg.textContent='Your vote didn\u2019t save. Try again.'}}},...inner);
+    return{key:v[0],n,el};
   });
   const reveal=h('button',{class:'btn primary big'},'Reveal the answer');
   reveal.addEventListener('click',()=>{const t=tally();const max=Math.max(t.yes,t.no,t.notyet);const top=['yes','no','notyet'].filter(k=>t[k]===max);const choice=top.length===1?top[0]:'notyet';writeRoom({phase:'end',result:{choice,tally:t}})});
-  const log=chatLog();
   const el=h('div',{class:'panel'},
     h('h2',{class:'fq'},FINAL_Q),
-    h('p',{class:'muted'},'Vote on your phones, or stand in the room: yes, not yet, or no. The robot needs you to decide.'),
+    h('p',{class:'muted'},host?'Vote on your phones, or stand in the room: yes, not yet, or no. The robot needs you to decide.':'Tap your answer: yes, not yet, or no. The robot needs you to decide.'),
     h('div',{class:'votes'},opts.map(o=>o.el)),
-    host?h('div',{class:'actions'},reveal,h('span',{class:'muted small'},'Use + and \u2212 to count people who vote by standing or speaking.')):null);
-  function update(){const t=tally();opts.forEach(o=>{o.n.textContent=t[o.key]});reveal.disabled=(t.yes+t.no+t.notyet)<1}
+    host?h('div',{class:'actions'},reveal,h('span',{class:'muted small'},'Use + and \u2212 to count people who vote by standing or speaking.')):msg);
+  function update(){const t=tally();opts.forEach(o=>{o.n.textContent=t[o.key];if(!host)o.el.classList.toggle('sel',mineVote()===o.key)});reveal.disabled=(t.yes+t.no+t.notyet)<1}
   return{el,update};
 }
 function panelEnd(host){
@@ -3802,16 +4044,17 @@ function mountStage(host){
   const rehBtn=h('button',{class:'btn sm ghost',type:'button',onClick:openRehearsal},'Rehearse');
   const PREV={making:'lobby',mixing:'making',create:'mixing',talk:'create',vote:'talk',end:'vote'};
   const backBtn=h('button',{class:'btn sm',type:'button',onClick:()=>{const ph=D.room.phase;if(!host||ph==='lobby'){goChooser();return}const patch={phase:PREV[ph]};if(ph==='end')patch.result=null;writeRoom(patch)}},'Back');
-  const top=h('header',{class:'top'},h('div',{class:'brand'},h('span',{html:HEART}),'What is love?'),h('ol',{class:'stepper'},steps),h('div',{class:'row'},host?rehBtn:null,backBtn,host?resetBtn:h('span',{class:'muted small'},'Watching')));
+  const top=h('header',{class:'top'},h('div',{class:'brand'},h('span',{html:HEART}),'What is love?'),h('ol',{class:'stepper'},steps),h('div',{class:'row'},host?rehBtn:null,backBtn,host?resetBtn:h('span',{class:'muted small'},'In the audience')));
   const robot=Robot();A.robot=robot;
   const plate=h('div',{class:'nameplate'});
   const robotCol=h('section',{class:'robotcol'},robot.el,plate,robot.frags);
   const panelBox=h('section',{class:'panelcol'});
   el.append(top,h('main',{class:'grid'},robotCol,panelBox));
   const PANELS={lobby:()=>panelLobby(host),making:()=>panelCards('making',host),mixing:()=>panelCards('mixing',host),create:()=>panelCreate(host),talk:()=>panelTalk(host),vote:()=>panelVote(host),end:()=>panelEnd(host)};
-  let panel=null,pk='';
+  let panel=null,pk='',prevReady=null;
   function update(){
     const r=D.room;el.dataset.phase=r.phase;const idx=PHASE_IDX[r.phase];
+    if(host){const nowReady=DIMS.filter(d=>r.ready&&r.ready[d.id]&&membersOf(d.id).length>0).map(d=>d.id);if(prevReady){nowReady.filter(x=>prevReady.indexOf(x)<0).forEach(x=>{toast('The '+DIM[x].label+' room is ready.');bloop()})}prevReady=nowReady}
     steps.forEach((s,i)=>{s.className=i<idx?'done':i===idx?'now':''});
     if(pk!==r.phase){if(panel&&panel.cleanup)panel.cleanup();pk=r.phase;panel=(PANELS[r.phase]||PANELS.lobby)();panelBox.replaceChildren(panel.el)}
     panel.update();robot.update();
@@ -4080,24 +4323,38 @@ function makeTabs(dimId,color){
     describeSoundTab()];
 }
 function subJoin(ctx){
-  const nameIn=h('input',{class:'input',placeholder:'Your group, e.g. \u201cAsh & Jo\u201d',maxlength:30,value:ses('grp')||''});
+  const nameIn=h('input',{class:'input',placeholder:'Your first name (or both names if you share a phone)',maxlength:30,value:ses('grp')||''});
   const list=h('div',{class:'dimlist'});const msg=h('div',{class:'err'});
   async function pick(d){
-    const n=nameIn.value.trim();if(!n){msg.textContent='Give your group a name first.';nameIn.focus();return}
+    const n=nameIn.value.trim();if(!n){msg.textContent='Type your name first.';nameIn.focus();return}
     ses('grp',n);msg.textContent='';
-    try{const ok=await claimDim(d.id,n,ctx.uid);if(!ok)msg.textContent='Someone just took that one. Pick another.'}
-    catch(e){console.error(e);msg.textContent='Couldn\u2019t join. You may need Contributor access from the host.'}
+    try{
+      const r=await claimDim(d.id,n,ctx.uid);
+      if(r==='full')msg.textContent='That room just filled up. Pick another.';
+      else if(r==='busy')msg.textContent='Someone joined at the same moment. Tap it again.';
+      else if(r==='already')msg.textContent='You are already in a room. Tap Back to leave it first.';
+    }catch(e){console.error(e);msg.textContent='Couldn\u2019t join. You may need Contributor access from the host.'}
   }
   const px=PixelRobot({w:130});
+  nameIn.addEventListener('input',()=>update());
+  const capNote=h('p',{class:'muted small'});
+  const seats=n=>h('span',{class:'seatbox'},h('span',{class:'seats'},Array.from({length:maxPer()},(_,i)=>h('i',{class:'seat'+(i<n?' on':'')}))),h('span',{class:'seatlabel'},n>=maxPer()?'Full':(maxPer()-n)+' of '+maxPer()+(maxPer()===1?' spot':' spots')+' open'));
   const el=h('div',{class:'sbody'},
-    px.el,h('h2',{class:'stat-title'},'Join the workshop'),
+    px.el,h('h2',{class:'stat-title'},'Choose your room'),
     h('p',{class:'frametxt'},FRAMING),
-    nameIn,h('p',{class:'muted small'},ctx.lockDim?'':'Then choose the question your group will answer.'),list,msg);
+    capNote,
+    nameIn,h('p',{class:'muted small'},ctx.lockDim?'':'Then choose the question you will answer.'),list,msg);
   function update(){
-    const all=DIMS.filter(d=>!ctx.lockDim||d.id===ctx.lockDim);if(all.length&&all.every(d=>{const c=D.claims[d.id];return c&&c.by!==ctx.uid&&!(isDemoClaim(c)&&!D.room.poured[d.id])}))msg.textContent='Every room is taken. If you\u2019re rehearsing, ask the host to press Reset on the Stage.';
-    list.replaceChildren(...DIMS.filter(d=>!ctx.lockDim||d.id===ctx.lockDim).map(d=>{
-      const c=D.claims[d.id];const taken=!!c&&c.by!==ctx.uid&&!(isDemoClaim(c)&&!D.room.poured[d.id]);const sample=isDemoClaim(c)&&!taken;
-      return h('button',{class:'dimbtn',type:'button',disabled:taken,style:{'--c':d.color},onClick:()=>pick(d)},vial(d.color,taken),h('div',null,h('b',null,ctx.lockDim?'Start':d.label),h('div',{class:'muted small'},taken?'taken by '+c.group:sample?'sample room: tap to take it over':d.q)));
+    px.update();
+    capNote.textContent='Each room takes up to '+maxPer()+' '+(maxPer()===1?'person':'people')+'. Play on your own phone, or share one phone and type all your names.';
+    const dims=DIMS.filter(d=>!ctx.lockDim||d.id===ctx.lockDim);
+    const allFull=dims.length>0&&dims.every(d=>{const m=membersOf(d.id);return m.length>=maxPer()&&!m.some(c=>c.by===ctx.uid)&&!m.some(c=>sameName(c.name||c.group,nameIn.value))});
+    if(allFull&&!msg.textContent)msg.textContent='Every room is full. Ask the host.';
+    if(!allFull&&msg.textContent.indexOf('Every room is full')===0)msg.textContent='';
+    list.replaceChildren(...dims.map(d=>{
+      const real=membersOf(d.id),full=real.length>=maxPer(),twin=real.find(c=>c.by!==ctx.uid&&sameName(c.name||c.group,nameIn.value)),disabled=full&&!twin;
+      return h('button',{class:'dimbtn'+(disabled?' full':''),type:'button',disabled,style:{'--c':d.color},onClick:()=>pick(d)},vial(d.color,real.length>0),
+        h('div',{style:{flex:'1'}},h('b',null,ctx.lockDim?'Start':d.label),h('div',{class:'muted small'},twin?'That\u2019s you: tap to rejoin':disabled?'Full. Is that you? Type your name above to rejoin.':d.q)),seats(real.length));
     }));
   }
   return{el,update};
@@ -4105,20 +4362,22 @@ function subJoin(ctx){
 function subMake(ctx){
   const d=DIM[ctx.claim.dim];const tabs=makeTabs(d.id,d.color);const T=Tabs(tabs,d.color);
   const msg=h('div',{class:'err'});const btn=h('button',{class:'btn primary big',type:'button'},'Brew this potion');
+  const anon=h('input',{type:'checkbox'});
+  const anonRow=h('label',{class:'anon'},anon,h('span',null,h('b',null,'Keep my name off the big screen'),h('div',{class:'muted small'},'Your answer will still appear, shown as \u201cAnonymous\u201d. Leave this off to show your name with your answer.')));
   btn.addEventListener('click',async()=>{
     const part=T.current().get();
     if(!part){msg.textContent='Add your answer first.';return}
     if(part.error){msg.textContent=part.error;return}
-    const c=Object.assign({dim:d.id,group:ctx.claim.group,by:ctx.uid,ts:Date.now()},part);
-    if(JSON.stringify(c).length>235000){msg.textContent='That\u2019s too large to send. Try a smaller or shorter one.';return}
+    const c=Object.assign({dim:d.id,name:ctx.claim.name||ctx.claim.group,group:ctx.claim.name||ctx.claim.group,anon:anon.checked,by:ctx.uid,ts:Date.now()},part);
+    if(JSON.stringify(c).length>210000){msg.textContent='That\u2019s too large to send. Try a smaller or shorter one.';return}
     btn.disabled=true;msg.textContent='';
-    try{await putDoc('contribs',d.id,c)}
+    try{await putDoc('answers',ansId(d.id,ctx.uid),c)}
     catch(e){console.error(e);btn.disabled=false;msg.textContent='It didn\u2019t save. Try again, or answer in words instead.'}
   });
   const el=h('div',{class:'sbody',style:{'--c':d.color}},
     D.room.phase==='lobby'?h('p',{class:'muted small'},'The host hasn\u2019t started yet. You can begin whenever you\u2019re ready.'):null,
     h('p',{class:'frametxt'},FRAMING),
-    h('h2',{class:'mkq'},d.q),h('p',{class:'mkhint'},d.hint),T.el,msg,btn,
+    h('h2',{class:'mkq'},d.q),h('p',{class:'mkhint'},d.hint),T.el,msg,anonRow,btn,
     h('p',{class:'muted small'},'Tech trouble? Every question can be answered in words.'));
   return{el,update(){},cleanup(){T.destroy()}};
 }
@@ -4131,26 +4390,48 @@ function brewFlask(color){
     '<g class="bf-rock"><g clip-path="url(#'+id+')"><g class="bf-liq"><path class="bf-w2" d="'+wv(104)+'"/><path class="bf-w1" d="'+wv(110)+'"/><ellipse class="bf-swirl" cx="60" cy="128" rx="30" ry="9"/>'+bub+'</g></g><path class="bf-glass" d="'+body+'"/></g>'+
     '<path class="bf-steam" d="M54 2c-5-6 5-10 0-18"/><path class="bf-steam s2" d="M66 2c5-6-5-10 0-18"/></svg>';
 }
+function showShareGuide(d,n){
+  const ov=h('div',{class:'overlay'});const close=()=>ov.remove();
+  const steps=[
+    'Wait for the host to call your room. Your answers will appear on the big screen.',
+    'Tell the group which question you answered: \u201c'+d.label+'\u201d.',
+    n>1?'Take turns, one person at a time. Say your answer out loud, in your own words. About a minute each is plenty.':'Say your answer out loud, in your own words. About a minute is plenty.',
+    'Share as much or as little as you like. If you chose Anonymous, your name will not be shown, and you do not have to say which answer is yours.',
+    'Listen to the others. When everyone has shared, the host pours your potion into the pot.'
+  ];
+  ov.append(h('div',{class:'reveal d-'+d.id},
+    h('div',{class:'rh'},h('b',null,n>1?'Everyone has answered':'Your answer is in')),
+    h('p',{class:'rq'},'Soon the host will call your room to share with the group. Here is how it works:'),
+    h('ol',{class:'guide'},steps.map(t=>h('li',null,t))),
+    h('div',{class:'row'},h('button',{class:'btn primary big',type:'button',onClick:close},'Got it'))));
+  document.body.append(ov);
+}
 function subReady(ctx){
-  const d=DIM[ctx.claim.dim];
+  const d=DIM[ctx.claim.dim],id=ansId(d.id,ctx.uid);
   const title=h('h2',{class:'stat-title'});const sub=h('p',{class:'muted'});const prev=h('div',{class:'card',style:{width:'100%'}});
-  const redo=h('button',{class:'btn ghost',type:'button',onClick:()=>delDoc('contribs',d.id)},'Redo my answer');
+  const redo=h('button',{class:'btn ghost',type:'button',onClick:()=>delDoc('answers',id)},'Redo my answer');
+  const anon=h('input',{type:'checkbox'});
+  anon.addEventListener('change',()=>{const a=D.answers[id];if(a&&!D.room.poured[d.id])putDoc('answers',id,Object.assign({},a,{anon:anon.checked})).catch(e=>console.error(e))});
+  const anonRow=h('label',{class:'anon',style:{width:'100%'}},anon,h('span',null,h('b',null,'Keep my name off the big screen'),h('div',{class:'muted small'},'Your answer will still appear, shown as \u201cAnonymous\u201d.')));
   const vw=h('div');
   const px=PixelRobot({w:130});
-  const el=h('div',{class:'readybox',style:{'--c':d.color}},px.el,vw,title,sub,prev,redo);
+  const el=h('div',{class:'readybox',style:{'--c':d.color}},px.el,vw,title,sub,prev,anonRow,redo);
   let lastKey='';
   function update(){
-    px.update();const c=D.contribs[d.id];if(!c)return;const poured=!!D.room.poured[d.id],ph=D.room.phase;
-    const key=poured+'|'+ph+'|'+c.ts;if(key===lastKey)return;lastKey=key;
+    px.update();const a=D.answers[id];if(!a)return;
+    const poured=!!D.room.poured[d.id],ph=D.room.phase,rdy=!!(D.room.ready&&D.room.ready[d.id]);
+    const mem=membersOf(d.id,true),done=mem.filter(m=>D.answers[ansId(d.id,m.by)]).length,left=Math.max(0,mem.length-done);
+    const key=[poured,ph,a.ts,!!a.anon,rdy,done,mem.length].join('|');if(key===lastKey)return;lastKey=key;
+    if(rdy&&!poured&&!isDemoUid(ctx.uid)){const gk='guide_'+d.id+'_'+(D.room.rev||0);if(!ses(gk)){ses(gk,'1');showShareGuide(d,mem.filter(m=>!isDemoUid(m.by)).length||mem.length)}}
     if(!vw.firstChild)vw.replaceChildren(h('div',{class:'brewwrap',html:brewFlask(d.color)}));
-    title.textContent=poured?'Your potion is in the pot.':'Your potion is ready.';
-    sub.textContent=poured?(ph==='create'?'Watch the screen. The robot is waking up.':'Watch the screen.'):ph==='mixing'?'The host will call your group to present it, and then it goes into the pot.':'It will be added to the pot once everyone is ready.';
-    prev.replaceChildren(renderContrib(c,d,'mini'));redo.hidden=poured;
+    title.textContent=poured?'Your potion is in the pot.':rdy?'Your room is ready.':'Your answer is in.';
+    sub.textContent=poured?(ph==='create'?'Watch the screen. The robot is waking up.':'Watch the screen.'):ph==='mixing'?'The host will call your room to present it, and then it goes into the pot.':rdy?'It will be added to the pot once every room is ready.':left>0?'Waiting for '+left+' more '+(left===1?'person':'people')+' in your room to answer.':'Waiting for the other rooms.';
+    prev.replaceChildren(renderContrib(a,d,'mini'));redo.hidden=poured;anonRow.hidden=poured;anon.checked=!!a.anon;
   }
   return{el,update};
 }
 function subTalk(ctx){
-  const log=chatLog();const el=h('div',{class:'sbody'},h('h2',{class:'stat-title'},'Ask it anything.'),log.el,askBox((ctx.claim&&ctx.claim.group)||ses('grp')||'A guest',true));
+  const log=chatLog();const el=h('div',{class:'sbody'},h('h2',{class:'stat-title'},'Ask it anything.'),h('p',{class:'muted small'},'Watch the big screen, ask the robot questions here, and vote when it asks. You are not making a potion now.'),log.el,askBox((ctx.claim&&(ctx.claim.name||ctx.claim.group))||ses('grp')||'A guest',true));
   return{el,update(){log.update()}};
 }
 function subVote(ctx){
@@ -4176,7 +4457,7 @@ function mountStation(opts){
     const r=D.room,c=claim();
     if(r.phase==='talk')return'talk';if(r.phase==='vote')return'vote';if(r.phase==='end')return'end';
     if(!c)return'join';
-    return(D.contribs[c.dim]?'ready:':'make:')+c.dim+':'+r.rev;
+    return(D.answers[ansId(c.dim,opts.uid)]?'ready:':'make:')+c.dim+':'+r.rev;
   }
   function update(){
     const k=stepKey();
@@ -4185,12 +4466,12 @@ function mountStation(opts){
       body.replaceChildren(sub.el)}
     const c=claim();
     wrap.className='swrap'+(c?' roomed d-'+c.dim:'');
-    if(c){const d=DIM[c.dim];banner.hidden=false;banner.replaceChildren(h('i',{class:'st-light'}),h('b',null,d.label),h('span',null,'Your room: '+d.ing+', with '+c.group))}
+    if(c){const d=DIM[c.dim];banner.hidden=false;const others=membersOf(c.dim,true).filter(m=>m.by!==opts.uid&&!isDemoUid(m.by)).map(m=>m.name||m.group);banner.replaceChildren(h('i',{class:'st-light'}),h('b',null,d.label),h('span',null,'Your room: '+d.ing+(others.length?', with '+others.join(' & '):'')))}
     else banner.hidden=true;
     let backFn=null;
     if(!c)backFn=opts.onClose?null:goChooser;
-    else if(k.startsWith('make'))backFn=()=>delDoc('claims',c.dim);
-    else if(k.startsWith('ready')&&!D.room.poured[c.dim])backFn=()=>delDoc('contribs',c.dim);
+    else if(k.startsWith('make'))backFn=()=>delDoc('claims',ansId(c.dim,opts.uid));
+    else if(k.startsWith('ready')&&!D.room.poured[c.dim])backFn=()=>delDoc('answers',ansId(c.dim,opts.uid));
     head.replaceChildren(h('div',{class:'brand'},h('span',{html:HEART}),'What is love?'),h('div',{class:'row'},opts.onClose?h('button',{class:'btn sm',type:'button',onClick:opts.onClose},'Back to stage'):null,backFn?h('button',{class:'btn sm',type:'button',onClick:backFn},'Back'):null));
     sub.update&&sub.update();
   }
@@ -4204,24 +4485,29 @@ function setView(v){if(A.view&&A.view.cleanup)A.view.cleanup();A.view=v;app.repl
 function loading(msg){app.replaceChildren(h('div',{class:'center'},h('div',{class:'hero'},h('span',{class:'pulse-heart',html:HEART}),h('p',null,msg))))}
 function chooser(){
   const opts=[];
-  if(A.noAccess)opts.push(h('div',{class:'card',style:{textAlign:'left'}},h('b',null,'You\u2019re not signed in to this page yet'),h('p',{class:'muted',style:{marginTop:'6px'}},'To take part you need to be signed in to claude.ai and have access to this page. Sign in, then reload. If you still don\u2019t see Group station, ask the host to share the page with you as a Contributor.')));
-  if(A.isHost)opts.push(h('button',{class:'choice',onClick:()=>go('stage')},h('b',null,'Stage'),h('span',null,DB?'The shared screen for the room. You run the experience from here.':'Run the experience on this screen. Groups take turns on this device.')));
-  if(DB&&A.canWrite)opts.push(h('button',{class:'choice',onClick:()=>go('station')},h('b',null,'Group station'),h('span',null,'Your group teaches the robot one dimension of love.')));
-  if(DB&&!A.canWrite)opts.push(h('div',{class:'card',style:{textAlign:'left'}},h('b',null,'You\u2019re signed in, but only as a viewer'),h('p',{class:'muted',style:{marginTop:'6px'}},'You can watch the stage, but joining a group needs Contributor access. Ask the host to change your access in the Share menu, then reload this page.')));
-  if(DB&&!A.isHost)opts.push(h('button',{class:'choice',onClick:()=>go('watch')},h('b',null,'Watch the stage'),h('span',null,'Follow along without taking part.')));
+  if(A.noAccess)opts.push(h('div',{class:'card',style:{textAlign:'left'}},h('b',null,'You\u2019re not signed in to this page yet'),h('p',{class:'muted',style:{marginTop:'6px'}},'To take part you need to be signed in to claude.ai and have access to this page. Sign in, then reload. If you still don\u2019t see the lab, ask the host to share the page with you as a Contributor.')));
+  const labTitle='Enter the What is Love? lab',labSub='Answer one question about love and brew a potion for the robot.',hostTitle='Host Panel & Control Screen';
+  if(A.isHost){
+    opts.push(h('button',{class:'choice main',onClick:()=>go('stage')},h('b',null,hostTitle),h('span',null,DB?'Run the workshop from here: begin, bring the potions together, wake the robot and reveal the vote.':'Run the experience on this screen. Groups take turns on this device.')));
+    if(DB&&A.canWrite)opts.push(h('button',{class:'choice quiet',onClick:()=>go('station')},h('b',null,labTitle+' (to test)'),h('span',null,'Try a group\u2019s phone screen yourself.')));
+  }else{
+    if(DB&&A.canWrite)opts.push(h('button',{class:'choice main',onClick:()=>go('station')},h('b',null,labTitle),h('span',null,labSub)));
+    if(DB&&!A.canWrite)opts.push(h('div',{class:'card',style:{textAlign:'left'}},h('b',null,'You\u2019re signed in, but only as a viewer'),h('p',{class:'muted',style:{marginTop:'6px'}},'You can watch the big screen, but entering the lab needs Contributor access. Ask the host to change your access in the Share menu, then reload this page.')));
+    if(DB)opts.push(h('button',{class:'choice quiet',onClick:()=>go('watch')},h('b',null,hostTitle),h('span',null,'For the host. Everyone else sees the big screen here: watch, ask the robot questions and vote. You will not make a potion.')));
+  }
   const px=PixelRobot({w:innerWidth<480?150:220});
-  const el=h('div',{class:'center'},h('div',{class:'hero'},px.el,h('h1',null,'What is love?'),h('p',null,'A robot wants to belong. A room of people will teach it what love is, and every piece you add fills its heart.'),h('div',{class:'pots'},DIMS.map(d=>h('div',{class:'pot d-'+d.id},vial(d.color,true),h('b',null,d.label)))),h('div',{class:'choices'},opts,DB&&A.isHost?h('p',{class:'muted small'},'To let groups take part, share this page with each of them as a Contributor.'):null)));
+  const el=h('div',{class:'center'},h('div',{class:'hero'},px.el,h('h1',null,'What is love?'),h('p',null,'A robot wants to belong. A room of people will teach it what love is, and every piece you add fills its heart.'),h('div',{class:'pots'},DIMS.map(d=>h('div',{class:'pot d-'+d.id},vial(d.color,true),h('b',null,d.label)))),h('div',{class:'choices'},opts,DB&&A.isHost?h('p',{class:'muted small'},'To let groups take part, share this page with each of them as a Contributor.'):null,DB&&!A.isHost&&A.canWrite?h('p',{class:'muted small'},'Not sure? Choose Enter the What is Love? lab.'):null)));
   setView({el,update:px.update});
 }
-function goChooser(){ses('role','');A.role=null;chooser()}
+function goChooser(){ses('role','');try{localStorage.removeItem('wil_role')}catch(e){}A.role=null;chooser()}
 function go(role){
-  ses('role',role);A.role=role;
+  ses('role',role);try{if(role==='station')localStorage.setItem('wil_role','station');else localStorage.removeItem('wil_role')}catch(e){}A.role=role;
   if(role==='stage')setView(mountStage(true));
   else if(role==='watch')setView(mountStage(false));
   else setView(mountStation({uid:A.uid}));
 }
 listeners.add(()=>{if(A.view&&A.view.update)A.view.update()});
-listeners.add(()=>{if(A.role==='stage'&&A.isHost)processChat()});
+listeners.add(()=>{if(A.role==='stage'&&A.isHost){processChat();hostSync()}});
 
 async function boot(){
   loading('Opening the workshop\u2026');
@@ -4234,7 +4520,7 @@ async function boot(){
     if(!A.uid){A.uid=ses('uid')||('g_'+rid()+rid());ses('uid',A.uid)}
     subscribe();
   }else{A.noAccess=!!window.claude;A.isHost=!A.noAccess;A.uid=ses('uid')||('g_'+rid());ses('uid',A.uid)}
-  const saved=ses('role');
+  const saved=ses('role')||(function(){try{return localStorage.getItem('wil_role')}catch(e){return null}})();
   if(saved&&((saved==='stage'&&A.isHost)||(saved==='station'&&DB&&A.canWrite)||(saved==='watch'&&DB))){go(saved)}
   else if(DB&&!A.isHost&&A.canWrite&&false){go('station')}
   else chooser();

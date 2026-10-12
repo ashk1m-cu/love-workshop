@@ -347,29 +347,34 @@ button.room:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--cl),0 0 
 .sbusy{display:flex;gap:10px;align-items:center;color:var(--ink2)}
 .spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--c,var(--ink));animation:rot 1s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
-.readybox{display:grid;gap:12px;justify-items:stretch;text-align:left;padding:0}
+.readybox{display:flex;flex-direction:column;gap:10px;text-align:left;padding:0;flex:1}
 .readybox .vial-wrap svg{width:96px;height:128px}
 .readybox .vial-wrap.bubbling{animation:float 6s ease-in-out infinite}
 .brewwrap{display:grid;justify-items:center;padding-top:4px}
 .brew{width:150px;height:auto;overflow:visible;display:block}
 .rtop{display:grid;justify-items:center;gap:8px;text-align:center}
 .rtop .brewwrap{padding:0}
-.rtop .brew{width:112px}
+.rtop .brew{width:100px}
 .rtext{display:grid;gap:4px;text-align:center;min-width:0}
-.rtext .stat-title{font-size:1.1rem}
+.rtext .stat-title{font-size:1.3rem}
 .rtext p{font-size:.92rem;line-height:1.35}
-.rfoot{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rfoot{display:grid;justify-items:center;gap:8px;margin-top:auto;padding-top:4px}
 .rfoot .btn{white-space:nowrap}
-.pxscene.row{display:flex;align-items:center;gap:10px}
+.pxscene.row{display:grid;justify-items:center;gap:6px}
 .pxscene.row .pxscreen{padding:6px 8px;border-radius:10px;box-shadow:0 0 0 3px var(--wash2)}
-.pxscene.row .pxcap{text-align:left;min-height:0;font-size:.8rem;max-width:none;line-height:1.25;white-space:nowrap;font-weight:600}
-.swrap.compact .station{gap:8px}
+.pxscene.row .pxcap{text-align:center;min-height:0;font-size:.82rem;max-width:none;line-height:1.25;white-space:nowrap;font-weight:600}
+.swrap.compact .station{gap:8px;min-height:100vh;min-height:100dvh;padding-bottom:28px}
+.swrap.compact .sheet{display:flex;flex-direction:column;flex:1}
+.readybox .anon{font-size:.85rem;padding:9px 12px;gap:10px}
+.readybox .contrib.mini .frame img{max-height:80px}
+.readybox .anon .muted{font-size:.76rem;line-height:1.3}
+.readybox .anon input{width:16px;height:16px;margin-top:2px}
 .swrap.compact .st-banner{padding:2px 2px 0}
 .swrap.compact .st-banner b{font-size:clamp(2.1rem,10vw,2.8rem)}
 .swrap.compact .st-banner span{margin-top:2px;font-size:.9rem}
 .swrap.compact .st-light{margin-bottom:8px;height:5px;width:72px}
 .swrap.compact .sheet{padding:14px}
-@media(max-height:720px){.rtop .brew{width:56px}.readybox{gap:7px}.rtop{gap:4px}.readybox .contrib.mini .frame img{max-height:54px}.readybox .anon{padding:8px 12px}.swrap.compact .sheet{padding:12px}}
+@media(max-height:720px){.readybox .pxscreen svg{width:40px!important}.rfoot{gap:8px;padding-top:2px}.readybox .anon .muted{display:none}.rtop .brew{width:48px}.rtext p{font-size:.85rem}.readybox .pxscreen svg{width:34px!important}.readybox{gap:7px}.rtop{gap:4px}.readybox .contrib.mini .frame img{max-height:54px}.readybox .anon{padding:8px 12px}.swrap.compact .sheet{padding:12px}}
 .bf-glass{fill:rgba(255,255,255,.35);stroke:var(--bc);stroke-width:3.5;stroke-linejoin:round}
 .bf-w1{fill:var(--bc);fill-opacity:.9;animation:wv60 2.6s linear infinite}
 .bf-w2{fill:var(--bc);fill-opacity:.5;animation:wv60 4.2s linear infinite reverse}
@@ -3079,7 +3084,7 @@ const svgUrl=s=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
 
 /* ================= data store (shared via db, or local) ================= */
 const D={room:null,claims:{},contribs:{},answers:{},chat:{},votes:{}};
-const defaultRoom=()=>({phase:'lobby',poured:{},order:[],robot:null,talkStart:0,finalAsked:false,result:null,manual:{yes:0,no:0,notyet:0},rev:0,ready:{},force:{},max:2});
+const defaultRoom=()=>({phase:'lobby',poured:{},order:[],robot:null,talkStart:0,finalAsked:false,result:null,manual:{yes:0,no:0,notyet:0},rev:0,ready:{},force:{},max:2,total:15});
 D.room=defaultRoom();
 let DB=null,inflight=0,roomChain=Promise.resolve();
 const listeners=new Set();let emitT=null;
@@ -3095,6 +3100,9 @@ async function putDoc(coll,id,data){if(DB)await DB.doc(coll+'/'+id).set(data);D[
 async function delDoc(coll,id){const o=Object.assign({},D[coll]);delete o[id];D[coll]=o;emit();if(DB)await DB.doc(coll+'/'+id).delete()}
 const DEFAULT_MAX=2;
 const maxPer=()=>Math.max(1,Math.min(6,Number(D.room&&D.room.max)||DEFAULT_MAX));
+const DEFAULT_TOTAL=15;
+const totalPeople=()=>Math.max(1,Math.min(99,Number(D.room&&D.room.total)||DEFAULT_TOTAL));
+function headcount(){const cl=Object.values(D.claims).filter(c=>!isDemoUid(c.by));return{joined:new Set(cl.map(c=>c.by)).size,answered:new Set(cl.filter(c=>D.answers[ansId(c.dim,c.by)]).map(c=>c.by)).size}}
 const ansId=(dim,uid)=>dim+'__'+uid;
 const isDemoUid=u=>String(u||'').indexOf('demo-')===0;
 const isFillerUid=u=>String(u||'').indexOf('filler-')===0;
@@ -3845,8 +3853,17 @@ function maxControl(){
   const val=h('b',{style:{minWidth:'1.6ch',textAlign:'center',fontSize:'1.2rem'}},'2');
   const minus=h('button',{class:'btn sm',type:'button','aria-label':'Fewer people per room',onClick:()=>writeRoom({max:Math.max(1,maxPer()-1)})},'\u2212');
   const plus=h('button',{class:'btn sm',type:'button','aria-label':'More people per room',onClick:()=>writeRoom({max:Math.min(6,maxPer()+1)})},'+');
-  const el=h('div',{class:'card',style:{display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap',padding:'12px 16px'}},h('b',null,'People per room'),minus,val,plus,h('span',{class:'muted small',style:{flex:'1',minWidth:'180px'}},'Set this before people join. Rooms that are already over the limit keep their people. For 15 people in 6 rooms, 3 works.'));
-  return{el,update(){val.textContent=maxPer()}};
+  const cs={display:'flex',gap:'12px',alignItems:'center',flexWrap:'wrap',padding:'12px 16px',flex:'1 1 300px'};
+  const el=h('div',{class:'card',style:cs},h('b',null,'People per room'),minus,val,plus,h('span',{class:'muted small',style:{flex:'1',minWidth:'160px'}},'Set this before people join. Rooms already over the limit keep their people.'));
+  const setTotal=n=>writeRoom({total:Math.max(1,Math.min(99,Math.round(Number(n))||DEFAULT_TOTAL))});
+  const tin=h('input',{type:'number',min:'1',max:'99',class:'input',style:{width:'4.6em',textAlign:'center',fontWeight:'700',padding:'6px'},'aria-label':'Total people'});
+  tin.addEventListener('change',()=>setTotal(tin.value));
+  const tminus=h('button',{class:'btn sm',type:'button','aria-label':'Fewer people in total',onClick:()=>setTotal(totalPeople()-1)},'\u2212');
+  const tplus=h('button',{class:'btn sm',type:'button','aria-label':'More people in total',onClick:()=>setTotal(totalPeople()+1)},'+');
+  const line=h('span',{class:'muted small',style:{flex:'1',minWidth:'160px'}});
+  const tel=h('div',{class:'card',style:cs},h('b',null,'Total people'),tminus,tin,tplus,line);
+  const row=h('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap',alignItems:'stretch'}},el,tel);
+  return{el:row,update(){val.textContent=maxPer();if(document.activeElement!==tin)tin.value=totalPeople();const hc=headcount();line.textContent=hc.joined+' of '+totalPeople()+' have joined.'}};
 }
 function cleanAddr(v){v=String(v||'').trim();if(!/^https?:\/\//i.test(v))return'';return v.split('#')[0].split('?')[0]}
 function joinCard(){
@@ -3906,7 +3923,7 @@ function panelCards(mode,host){
   const prog=h('div',{class:'progress'},h('i'));
   const info=h('p',{class:'muted'});
   const btn=h('button',{class:'btn primary big'},mode==='making'?'Bring the pieces together':'Wake the robot');
-  const skip=h('button',{class:'btn',type:'button',hidden:true},'Continue without waiting');
+  const skip=h('button',{class:'btn',type:'button',hidden:true},'Continue anyway');
   btn.addEventListener('click',async()=>{btn.disabled=true;if(mode==='making')await prepareMixing(false);else await writeRoom({phase:'create'})});
   skip.addEventListener('click',async()=>{skip.disabled=true;await prepareMixing(true)});
   const back=h('button',{class:'btn ghost',onClick:()=>writeRoom({phase:mode==='making'?'lobby':'making'})},'Back');
@@ -3918,10 +3935,17 @@ function panelCards(mode,host){
     grid.update();mc.update();
     const ready=DIMS.filter(d=>D.contribs[d.id]).length,poured=DIMS.filter(d=>D.room.poured[d.id]).length;
     if(mode==='making'){
-      const waiting=DIMS.filter(d=>membersOf(d.id,true).length>0&&!D.room.ready[d.id]).length;
+      const hc=headcount(),total=totalPeople(),pending=hc.joined-hc.answered;
       const empty=DIMS.filter(d=>membersOf(d.id,true).length===0&&!D.room.ready[d.id]).length;
-      info.textContent=ready+' of 6 rooms are ready.'+(waiting?' '+waiting+' still answering.':'')+(empty?' '+empty+' empty room'+(empty===1?'':'s')+' will get a sample answer.':'');
-      prog.firstChild.style.width=(ready/6*100)+'%';btn.disabled=waiting>0;skip.hidden=!(waiting>0);skip.disabled=false;
+      const canMove=hc.joined>=total&&pending===0;
+      let msg=hc.joined+' of '+total+' people have joined, and '+hc.answered+' have answered.';
+      if(hc.joined<total)msg+=' Waiting for '+(total-hc.joined)+' more to join.';
+      else if(pending)msg+=' '+pending+' still answering.';
+      else msg+=' Everyone is in.';
+      if(!canMove)msg+=' Or continue anyway with the answers you have.';
+      if(empty)msg+=' '+empty+' empty room'+(empty===1?'':'s')+' will get a sample answer so the robot can still wake.';
+      info.textContent=msg;
+      prog.firstChild.style.width=Math.min(100,hc.answered/total*100)+'%';btn.disabled=!canMove;skip.hidden=canMove;skip.disabled=false;
     }else{info.textContent=poured+' of 6 poured. '+(poured===6?'Every room is in.':'Waiting on '+(6-poured)+' more.');prog.firstChild.style.width=(poured/6*100)+'%';btn.disabled=poured<6}
   }
   return{el,update};
@@ -4442,8 +4466,8 @@ function subReady(ctx){
   anon.addEventListener('change',()=>{const a=D.answers[id];if(a&&!D.room.poured[d.id])putDoc('answers',id,Object.assign({},a,{anon:anon.checked})).catch(e=>console.error(e))});
   const anonRow=h('label',{class:'anon',style:{width:'100%'}},anon,h('span',null,h('b',null,'Keep my name off the big screen'),h('div',{class:'muted small'},'Your answer will still appear, shown as \u201cAnonymous\u201d.')));
   const vw=h('div');
-  const px=PixelRobot({w:40,row:true});
-  const el=h('div',{class:'readybox',style:{'--c':d.color}},h('div',{class:'rtop'},vw,h('div',{class:'rtext'},title,sub)),prev,anonRow,h('div',{class:'rfoot'},redo,px.el));
+  const px=PixelRobot({w:44,row:true});
+  const el=h('div',{class:'readybox',style:{'--c':d.color}},h('div',{class:'rtop'},vw,h('div',{class:'rtext'},title,sub)),prev,anonRow,h('div',{class:'rfoot'},px.el,redo));
   let lastKey='';
   function update(){
     px.update();const a=D.answers[id];if(!a)return;

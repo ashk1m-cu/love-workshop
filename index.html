@@ -347,34 +347,37 @@ button.room:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--cl),0 0 
 .sbusy{display:flex;gap:10px;align-items:center;color:var(--ink2)}
 .spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--c,var(--ink));animation:rot 1s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
-.readybox{display:flex;flex-direction:column;gap:10px;text-align:left;padding:0;flex:1}
+.readybox{display:flex;flex-direction:column;justify-content:space-evenly;gap:clamp(8px,1.6dvh,18px);text-align:left;padding:0;flex:1;min-height:0}
 .readybox .vial-wrap svg{width:96px;height:128px}
 .readybox .vial-wrap.bubbling{animation:float 6s ease-in-out infinite}
 .brewwrap{display:grid;justify-items:center;padding-top:4px}
 .brew{width:150px;height:auto;overflow:visible;display:block}
-.rtop{display:grid;justify-items:center;gap:8px;text-align:center}
-.rtop .brewwrap{padding:0}
-.rtop .brew{width:100px}
-.rtext{display:grid;gap:4px;text-align:center;min-width:0}
-.rtext .stat-title{font-size:1.3rem}
-.rtext p{font-size:.92rem;line-height:1.35}
-.rfoot{display:grid;justify-items:center;gap:8px;margin-top:auto;padding-top:4px}
-.rfoot .btn{white-space:nowrap}
-.pxscene.row{display:grid;justify-items:center;gap:6px}
-.pxscene.row .pxscreen{padding:6px 8px;border-radius:10px;box-shadow:0 0 0 3px var(--wash2)}
-.pxscene.row .pxcap{text-align:center;min-height:0;font-size:.82rem;max-width:none;line-height:1.25;white-space:nowrap;font-weight:600}
-.swrap.compact .station{gap:8px;min-height:100vh;min-height:100dvh;padding-bottom:28px}
-.swrap.compact .sheet{display:flex;flex-direction:column;flex:1}
-.readybox .anon{font-size:.85rem;padding:9px 12px;gap:10px}
-.readybox .contrib.mini .frame img{max-height:80px}
-.readybox .anon .muted{font-size:.76rem;line-height:1.3}
+.rtop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(4px,1dvh,10px);text-align:center;flex:1 1 auto;min-height:0}
+.rpotion{position:relative;flex:1 1 auto;width:100%;min-height:clamp(52px,10dvh,84px);max-height:clamp(120px,26dvh,240px)}
+.rpotion .brewwrap{position:absolute;inset:0;padding:0;display:block}
+.rpotion .brew{position:absolute;inset:0;width:100%;height:100%;margin:auto}
+.rtext{display:grid;gap:4px;text-align:center;min-width:0;flex:none}
+.rtext .stat-title{font-size:clamp(1.15rem,.85rem + 1.3dvh,1.7rem)}
+.rtext p{font-size:clamp(.82rem,.7rem + .6dvh,1.02rem);line-height:1.35}
+.readybox .contrib.mini .cq{font-size:clamp(.95rem,.8rem + .9dvh,1.3rem)}
+.readybox .contrib.mini .cap{font-size:clamp(.82rem,.7rem + .5dvh,1rem)}
+.readybox .contrib.mini .frame img,.readybox .contrib.mini video{max-height:clamp(54px,12dvh,220px)}
+.readybox .anon{font-size:clamp(.8rem,.7rem + .5dvh,.95rem);padding:clamp(7px,1.2dvh,12px) 12px;gap:10px;flex:none}
+.readybox .anon .muted{font-size:clamp(.72rem,.64rem + .4dvh,.82rem);line-height:1.3}
 .readybox .anon input{width:16px;height:16px;margin-top:2px}
+.rfoot{display:grid;justify-items:center;gap:clamp(6px,1dvh,12px);flex:none}
+.rfoot .btn{white-space:nowrap}
+.pxscene.row{display:grid;justify-items:center;gap:clamp(4px,.8dvh,8px)}
+.pxscene.row .pxscreen{padding:clamp(5px,.9dvh,9px) clamp(6px,1.1dvh,12px);border-radius:10px;box-shadow:0 0 0 3px var(--wash2)}
+.pxscene.row .pxcap{text-align:center;min-height:0;font-size:clamp(.74rem,.64rem + .45dvh,.9rem);max-width:none;line-height:1.25;white-space:nowrap;font-weight:600}
+.readybox .pxscreen svg{width:clamp(34px,6.2dvh,76px)!important}
+.swrap.compact .station{gap:clamp(6px,1dvh,12px);min-height:100vh;min-height:100dvh;padding-bottom:clamp(20px,3.4dvh,34px)}
+.swrap.compact .sheet{display:flex;flex-direction:column;flex:1;min-height:0;max-height:880px;padding:clamp(12px,2dvh,24px)}
 .swrap.compact .st-banner{padding:2px 2px 0}
 .swrap.compact .st-banner b{font-size:clamp(2.1rem,10vw,2.8rem)}
 .swrap.compact .st-banner span{margin-top:2px;font-size:.9rem}
 .swrap.compact .st-light{margin-bottom:8px;height:5px;width:72px}
-.swrap.compact .sheet{padding:14px}
-@media(max-height:720px){.readybox .pxscreen svg{width:40px!important}.rfoot{gap:8px;padding-top:2px}.readybox .anon .muted{display:none}.rtop .brew{width:48px}.rtext p{font-size:.85rem}.readybox .pxscreen svg{width:34px!important}.readybox{gap:7px}.rtop{gap:4px}.readybox .contrib.mini .frame img{max-height:54px}.readybox .anon{padding:8px 12px}.swrap.compact .sheet{padding:12px}}
+@media(max-height:700px){.readybox .anon .muted{display:none}.readybox .contrib.mini .frame img,.readybox .contrib.mini video{max-height:56px}.rpotion{min-height:46px}.swrap.compact .st-banner span{display:none}.swrap.compact .st-banner{padding-bottom:8px}.readybox .pxscreen svg{width:34px!important}}
 .bf-glass{fill:rgba(255,255,255,.35);stroke:var(--bc);stroke-width:3.5;stroke-linejoin:round}
 .bf-w1{fill:var(--bc);fill-opacity:.9;animation:wv60 2.6s linear infinite}
 .bf-w2{fill:var(--bc);fill-opacity:.5;animation:wv60 4.2s linear infinite reverse}
@@ -4465,7 +4468,7 @@ function subReady(ctx){
   const anon=h('input',{type:'checkbox'});
   anon.addEventListener('change',()=>{const a=D.answers[id];if(a&&!D.room.poured[d.id])putDoc('answers',id,Object.assign({},a,{anon:anon.checked})).catch(e=>console.error(e))});
   const anonRow=h('label',{class:'anon',style:{width:'100%'}},anon,h('span',null,h('b',null,'Keep my name off the big screen'),h('div',{class:'muted small'},'Your answer will still appear, shown as \u201cAnonymous\u201d.')));
-  const vw=h('div');
+  const vw=h('div',{class:'rpotion'});
   const px=PixelRobot({w:44,row:true});
   const el=h('div',{class:'readybox',style:{'--c':d.color}},h('div',{class:'rtop'},vw,h('div',{class:'rtext'},title,sub)),prev,anonRow,h('div',{class:'rfoot'},px.el,redo));
   let lastKey='';

@@ -347,11 +347,29 @@ button.room:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--cl),0 0 
 .sbusy{display:flex;gap:10px;align-items:center;color:var(--ink2)}
 .spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--c,var(--ink));animation:rot 1s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
-.readybox{display:grid;gap:16px;justify-items:center;text-align:center;padding:6px 0}
+.readybox{display:grid;gap:12px;justify-items:stretch;text-align:left;padding:0}
 .readybox .vial-wrap svg{width:96px;height:128px}
 .readybox .vial-wrap.bubbling{animation:float 6s ease-in-out infinite}
 .brewwrap{display:grid;justify-items:center;padding-top:4px}
 .brew{width:150px;height:auto;overflow:visible;display:block}
+.rtop{display:grid;justify-items:center;gap:8px;text-align:center}
+.rtop .brewwrap{padding:0}
+.rtop .brew{width:112px}
+.rtext{display:grid;gap:4px;text-align:center;min-width:0}
+.rtext .stat-title{font-size:1.1rem}
+.rtext p{font-size:.92rem;line-height:1.35}
+.rfoot{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rfoot .btn{white-space:nowrap}
+.pxscene.row{display:flex;align-items:center;gap:10px}
+.pxscene.row .pxscreen{padding:6px 8px;border-radius:10px;box-shadow:0 0 0 3px var(--wash2)}
+.pxscene.row .pxcap{text-align:left;min-height:0;font-size:.8rem;max-width:none;line-height:1.25;white-space:nowrap;font-weight:600}
+.swrap.compact .station{gap:8px}
+.swrap.compact .st-banner{padding:2px 2px 0}
+.swrap.compact .st-banner b{font-size:clamp(2.1rem,10vw,2.8rem)}
+.swrap.compact .st-banner span{margin-top:2px;font-size:.9rem}
+.swrap.compact .st-light{margin-bottom:8px;height:5px;width:72px}
+.swrap.compact .sheet{padding:14px}
+@media(max-height:720px){.rtop .brew{width:56px}.readybox{gap:7px}.rtop{gap:4px}.readybox .contrib.mini .frame img{max-height:54px}.readybox .anon{padding:8px 12px}.swrap.compact .sheet{padding:12px}}
 .bf-glass{fill:rgba(255,255,255,.35);stroke:var(--bc);stroke-width:3.5;stroke-linejoin:round}
 .bf-w1{fill:var(--bc);fill-opacity:.9;animation:wv60 2.6s linear infinite}
 .bf-w2{fill:var(--bc);fill-opacity:.5;animation:wv60 4.2s linear infinite reverse}
@@ -2987,7 +3005,7 @@ const DIMS=[
  {id:'what',label:'What',q:'What do you think of when you hear the word love?',ing:'an image',medium:'Drawing or image',color:'#f2602b',hint:'Show it instead of explaining it. A sketch, a symbol, a picture.'},
  {id:'when',label:'When',q:'Think of a time when you felt loved. What happened?',ing:'a memory',medium:'Writing',color:'#f2b01e',hint:'One specific moment. Where were you, who was there, what happened?'},
  {id:'where',label:'Where',q:'Where have you felt the most loved?',ing:'a place',medium:'Photograph',color:'#139785',hint:'Photograph the place, or something that stands in for it.'},
- {id:'how',label:'How',q:'How do you show someone that you love them?',ing:'an action',medium:'Short video or gesture',color:'#7b4ae2',hint:'Love as something you do. Record a gesture (4 seconds) or write it down.'},
+ {id:'how',label:'How',q:'How do you show someone that you love them? Describe the gesture or act.',ing:'an action',medium:'Writing, or a short video',color:'#7b4ae2',hint:'Think of something you really do: a gesture, a habit, a small act. Write it out, or record a short clip if you prefer.'},
  {id:'feeling',label:'Feeling',q:'If the feeling of love had a sound, what would it sound like?',ing:'a feeling',medium:'Sound',color:'#2d56d6',hint:'Record a sound, pick one from the shelf, or describe it.'}
 ];
 const DIM=Object.fromEntries(DIMS.map(d=>[d.id,d]));
@@ -3717,7 +3735,7 @@ function pxStageMarkup(){
 }
 function PixelRobot(o){
   const screen=h('div',{class:'pxscreen',style:{'--w':((o&&o.w)||190)+'px'},html:pxMarkup()});
-  const cap=h('div',{class:'pxcap'});const el=h('div',{class:'pxscene'},screen,cap);
+  const cap=h('div',{class:'pxcap'});const el=h('div',{class:'pxscene'+(o&&o.row?' row':'')},screen,cap);
   const svg=screen.querySelector('svg'),cells=[...svg.querySelectorAll('.hp')],body=svg.querySelector('.rb');
   function update(){
     const n=Math.max(DIMS.filter(d=>D.contribs[d.id]).length,DIMS.filter(d=>D.room.poured[d.id]).length);
@@ -3725,7 +3743,7 @@ function PixelRobot(o){
     cells.forEach(c=>c.classList.toggle('on',+c.dataset.r>=11-rows));
     body.style.opacity=.55+.45*f;
     svg.classList.toggle('lit',n>=6||!!D.room.robot);svg.classList.toggle('full',n>=6);
-    cap.textContent=D.room.robot?D.room.robot.name+' is awake.':n===0?'Its heart is empty. Every potion you brew helps fill it.':n<6?n+' of 6 pieces added. Its heart is '+Math.round(f*100)+'% whole.':'Every piece is in. Its heart is whole.';
+    cap.textContent=(o&&o.row)?(D.room.robot?D.room.robot.name+' is awake.':n===0?'Heart: empty':n<6?'Heart: '+Math.round(f*100)+'% whole':'Heart: whole'):D.room.robot?D.room.robot.name+' is awake.':n===0?'Its heart is empty. Every potion you brew helps fill it.':n<6?n+' of 6 pieces added. Its heart is '+Math.round(f*100)+'% whole.':'Every piece is in. Its heart is whole.';
   }
   update();return{el,update};
 }
@@ -4296,31 +4314,41 @@ function whoMaker(color){
       if(st.svg&&!st.verdict)return{error:'Tell us whether the image captures them: accept, reject or discuss.'};
       return{kind:'who',text,svg:st.svg||null,verdict:st.svg?st.verdict:null,mismatch:st.svg&&st.verdict!=='accepted'?(st.mismatch||'').trim()||null:null,history:st.history.length?st.history.slice():null,sketch:pad?pad.get():null,sketchCaption:pad&&sketchCap.value.trim()||null}}};
 }
+const CAP_ERR='Please tell the robot what this shows: tap a quick pick, or type your own.';
+function captionChips(heading,chips){
+  const input=h('input',{class:'input',placeholder:'Required: a few words about it',maxlength:140});
+  const add=t=>{const v=input.value.trim();input.value=v?(v.toLowerCase().indexOf(t.toLowerCase())>=0?v:v+', '+t):t;input.focus()};
+  const row=h('div',{class:'chips'},chips.map(t=>h('button',{type:'button',class:'chip',onClick:()=>add(t)},t)),h('button',{type:'button',class:'chip',onClick:()=>input.focus()},'Other'));
+  return{el:h('div',{class:'tabbody'},h('div',{class:'small',style:{fontWeight:'700'}},heading),row,input),value:()=>input.value.trim()};
+}
 function makeTabs(dimId,color){
-  const cap=(label)=>captionInput(label);
   if(dimId==='who')return[whoMaker(color)];
   if(dimId==='when')return[wordsTab('Write the moment as it comes to you\u2026','Write it')];
   if(dimId==='what'){
-    const pad=DrawPad(),c1=cap('Tell the robot what it is looking at (optional)');
-    const ph=PhotoPicker(),c2=cap('Tell the robot what it is looking at (optional)');
+    const pad=DrawPad(),c1=captionChips('What is it? (required)',['a heart','two people','a home','hands','a flower','the sun','a table with chairs']);
+    const ph=PhotoPicker(),c2=captionChips('What is it? (required)',['a heart','two people','a home','hands','a flower','the sun','a table with chairs']);
     return[
-      {label:'Draw it',el:h('div',{class:'tabbody'},pad.el,c1),get(){const u=pad.get();return u?{kind:'image',img:u,caption:c1.value.trim()||null}:null}},
-      {label:'Use an image',el:h('div',{class:'tabbody'},ph.el,c2),destroy:()=>ph.destroy(),get(){const u=ph.get();return u?{kind:'image',img:u,caption:c2.value.trim()||null}:null}},
-      wordsTab('Describe the image in words\u2026')];
+      wordsTab('Describe the image in your mind, as if you were telling someone what you see\u2026','Write it'),
+      {label:'Draw it',el:h('div',{class:'tabbody'},pad.el,c1.el),get(){const u=pad.get();if(!u)return null;const cp=c1.value();return cp?{kind:'image',img:u,caption:cp}:{error:CAP_ERR}}},
+      {label:'Use an image',el:h('div',{class:'tabbody'},ph.el,c2.el),destroy:()=>ph.destroy(),get(){const u=ph.get();if(!u)return null;const cp=c2.value();return cp?{kind:'image',img:u,caption:cp}:{error:CAP_ERR}}}];
   }
   if(dimId==='where'){
-    const ph=PhotoPicker(),c=cap('Name the place (optional)');
-    return[{label:'Photograph',el:h('div',{class:'tabbody'},ph.el,c),destroy:()=>ph.destroy(),get(){const u=ph.get();return u?{kind:'image',img:u,caption:c.value.trim()||null}:null}},wordsTab('Describe the place in words\u2026')];
+    const ph=PhotoPicker(),c=captionChips('Name the place (required)',['my home','a kitchen','a friend\u2019s place','outdoors','a car','school or work']);
+    return[
+      wordsTab('Describe the place where you felt most loved\u2026','Write it'),
+      {label:'Photograph',el:h('div',{class:'tabbody'},ph.el,c.el),destroy:()=>ph.destroy(),get(){const u=ph.get();if(!u)return null;const cp=c.value();return cp?{kind:'image',img:u,caption:cp}:{error:CAP_ERR}}}];
   }
   if(dimId==='how'){
-    const rec=Recorder('video',4000),c=cap('What are we seeing? (optional)');
-    return[{label:'Record a gesture',el:h('div',{class:'tabbody'},rec.el,c),destroy:()=>rec.destroy(),get(){const r=rec.get();return r?{kind:'video',video:r.url,vmime:r.mime,caption:c.value.trim()||null}:null}},wordsTab('Describe how you show love\u2026','Write it')];
+    const rec=Recorder('video',4000),c=captionChips('What gesture is this? (required)',['a hug','a wave','holding hands','cooking for someone','walking them home','a high five']);
+    return[
+      wordsTab('Describe the gesture or act, as if you were showing someone\u2026','Write it'),
+      {label:'Record a gesture',el:h('div',{class:'tabbody'},rec.el,c.el),destroy:()=>rec.destroy(),get(){const r=rec.get();if(!r)return null;const cp=c.value();return cp?{kind:'video',video:r.url,vmime:r.mime,caption:cp}:{error:CAP_ERR}}}];
   }
-  const rec=Recorder('audio',8000),c1=cap('What are we hearing? (optional)'),shelf=soundShelf(),c2=cap('Anything to add? (optional)');
+  const rec=Recorder('audio',8000),c1=captionChips('What are we hearing? (required)',['humming','laughter','a heartbeat','singing','tapping a rhythm','a whisper']),shelf=soundShelf(),c2=captionInput('Anything to add? (optional)');
   return[
-    {label:'Record a sound',el:h('div',{class:'tabbody'},rec.el,c1),destroy:()=>rec.destroy(),get(){const r=rec.get();return r?{kind:'audio',audio:r.url,amime:r.mime,caption:c1.value.trim()||null}:null}},
+    describeSoundTab(),
     {label:'Choose a sound',el:h('div',{class:'tabbody'},shelf.el,c2),destroy:()=>shelf.destroy(),get(){const s=shelf.get();return s?{kind:'audio',synth:s,caption:c2.value.trim()||null}:null}},
-    describeSoundTab()];
+    {label:'Record a sound',el:h('div',{class:'tabbody'},rec.el,c1.el),destroy:()=>rec.destroy(),get(){const r=rec.get();if(!r)return null;const cp=c1.value();return cp?{kind:'audio',audio:r.url,amime:r.mime,caption:cp}:{error:CAP_ERR}}}];
 }
 function subJoin(ctx){
   const nameIn=h('input',{class:'input',placeholder:'Your first name (or both names if you share a phone)',maxlength:30,value:ses('grp')||''});
@@ -4378,7 +4406,7 @@ function subMake(ctx){
     D.room.phase==='lobby'?h('p',{class:'muted small'},'The host hasn\u2019t started yet. You can begin whenever you\u2019re ready.'):null,
     h('p',{class:'frametxt'},FRAMING),
     h('h2',{class:'mkq'},d.q),h('p',{class:'mkhint'},d.hint),T.el,msg,anonRow,btn,
-    h('p',{class:'muted small'},'Tech trouble? Every question can be answered in words.'));
+    h('p',{class:'muted small'},'Prefer not to draw, record or take a photo? Writing works for every question.'));
   return{el,update(){},cleanup(){T.destroy()}};
 }
 function brewFlask(color){
@@ -4409,13 +4437,13 @@ function showShareGuide(d,n){
 function subReady(ctx){
   const d=DIM[ctx.claim.dim],id=ansId(d.id,ctx.uid);
   const title=h('h2',{class:'stat-title'});const sub=h('p',{class:'muted'});const prev=h('div',{class:'card',style:{width:'100%'}});
-  const redo=h('button',{class:'btn ghost',type:'button',onClick:()=>delDoc('answers',id)},'Redo my answer');
+  const redo=h('button',{class:'btn ghost',type:'button',onClick:()=>delDoc('answers',id)},'Redo my answer');redo.className='btn ghost sm';
   const anon=h('input',{type:'checkbox'});
   anon.addEventListener('change',()=>{const a=D.answers[id];if(a&&!D.room.poured[d.id])putDoc('answers',id,Object.assign({},a,{anon:anon.checked})).catch(e=>console.error(e))});
   const anonRow=h('label',{class:'anon',style:{width:'100%'}},anon,h('span',null,h('b',null,'Keep my name off the big screen'),h('div',{class:'muted small'},'Your answer will still appear, shown as \u201cAnonymous\u201d.')));
   const vw=h('div');
-  const px=PixelRobot({w:130});
-  const el=h('div',{class:'readybox',style:{'--c':d.color}},px.el,vw,title,sub,prev,anonRow,redo);
+  const px=PixelRobot({w:40,row:true});
+  const el=h('div',{class:'readybox',style:{'--c':d.color}},h('div',{class:'rtop'},vw,h('div',{class:'rtext'},title,sub)),prev,anonRow,h('div',{class:'rfoot'},redo,px.el));
   let lastKey='';
   function update(){
     px.update();const a=D.answers[id];if(!a)return;
@@ -4465,7 +4493,7 @@ function mountStation(opts){
       sub=({join:subJoin,make:subMake,ready:subReady,talk:subTalk,vote:subVote,end:subEnd})[name]({uid:opts.uid,lockDim:opts.lockDim,claim:c0});
       body.replaceChildren(sub.el)}
     const c=claim();
-    wrap.className='swrap'+(c?' roomed d-'+c.dim:'');
+    wrap.className='swrap'+(c?' roomed d-'+c.dim:'')+(k.indexOf('ready')===0?' compact':'');
     if(c){const d=DIM[c.dim];banner.hidden=false;const others=membersOf(c.dim,true).filter(m=>m.by!==opts.uid&&!isDemoUid(m.by)).map(m=>m.name||m.group);banner.replaceChildren(h('i',{class:'st-light'}),h('b',null,d.label),h('span',null,'Your room: '+d.ing+(others.length?', with '+others.join(' & '):'')))}
     else banner.hidden=true;
     let backFn=null;

@@ -3339,23 +3339,25 @@ async function colorOf(url,key){
     return colorCache[key]=(n>10&&top)?top[0]:null;
   }catch(e){return colorCache[key]=null}
 }
-function syncFacts(){
-  const C=D.contribs,f={};
+function syncFacts(pick){
+  const C=D.contribs,f={},src={};
+  const get=dim=>{const c=C[dim];if(!c)return null;let it=c;if(pick){const its=itemsOf(dim);if(its.length)it=pick(dim,its)}src[dim]=it;return it};
   const say=(c,n)=>c&&(c.caption||c.text)?lcFirst(toYou(cutClause(c.caption||c.text,n))):null;
-  if(C.who&&C.who.text)f.P=lcFirst(toYou(cutClause(C.who.text,70)));
-  if(C.who&&C.who.mismatch)f.miss=lcFirst(toYou(cutClause(C.who.mismatch,80)));
-  if(C.when&&(C.when.text||C.when.caption))f.M=cutClause(C.when.text||C.when.caption,95);
-  if(C.where)f.PL=C.where.caption||C.where.text?lcFirst(toYou(cutClause(C.where.caption||C.where.text,50))):null;
-  if(C.how)f.ACT=(C.how.text||C.how.caption)?lcFirst(toYou(cutClause(C.how.text||C.how.caption,80))):(C.how.kind==='video'?'something you showed with your hands':null);
-  if(C.feeling){const fe=C.feeling;f.SND=fe.synth&&SOUND_PHRASE[fe.synth]?SOUND_PHRASE[fe.synth]:(fe.caption||fe.text)?'\u201c'+cutClause(fe.caption||fe.text,50)+'\u201d':(fe.kind==='audio'?'the sound you recorded':null)}
-  if(C.what)f.IMG=say(C.what,50);
-  return f;
+  const W=get('who'),Wn=get('what'),Wh=get('when'),Wr=get('where'),H=get('how'),Fe=get('feeling');
+  if(W&&W.text)f.P=lcFirst(toYou(headline(W.text,70)));
+  if(W&&W.mismatch)f.miss=lcFirst(toYou(cutClause(W.mismatch,80)));
+  if(Wh&&(Wh.text||Wh.caption))f.M=cutClause(Wh.text||Wh.caption,95);
+  if(Wr)f.PL=Wr.caption||Wr.text?lcFirst(toYou(headline(Wr.caption||Wr.text,50))):null;
+  if(H)f.ACT=(H.text||H.caption)?lcFirst(toYou(cutClause(H.text||H.caption,80))):(H.kind==='video'?'something you showed with your hands':null);
+  if(Fe){f.SND=Fe.synth&&SOUND_PHRASE[Fe.synth]?SOUND_PHRASE[Fe.synth]:(Fe.caption||Fe.text)?'\u201c'+cutClause(Fe.caption||Fe.text,50)+'\u201d':(Fe.kind==='audio'?'the sound you recorded':null)}
+  if(Wn)f.IMG=say(Wn,50);
+  f.src=src;return f;
 }
-async function facts(){
-  const f=syncFacts(),C=D.contribs;
-  f.colWhat=C.what&&C.what.img?await colorOf(C.what.img,'what'+C.what.ts):null;
-  f.colWhere=C.where&&C.where.img?await colorOf(C.where.img,'where'+C.where.ts):null;
-  f.colSketch=C.who&&C.who.sketch?await colorOf(C.who.sketch,'sk'+C.who.ts):null;
+async function facts(seed){
+  const f=syncFacts(seed==null?null:pickLeast(seed)),s=f.src||{};
+  f.colWhat=s.what&&s.what.img?await colorOf(s.what.img,'what'+s.what.ts):null;
+  f.colWhere=s.where&&s.where.img?await colorOf(s.where.img,'where'+s.where.ts):null;
+  f.colSketch=s.who&&s.who.sketch?await colorOf(s.who.sketch,'sk'+s.who.ts):null;
   f.th=themes();
   return f;
 }
@@ -3406,7 +3408,7 @@ const INTENTS=[
   ['who',/who do you love|who.*love\b|whom/],
   ['dimask',/(about|tell me|describe|explain|what was|what is the|what.s the).*(memory|moment|place|porch|picture|drawing|image|sketch|sound|gesture|person)/],
   ['feel',/feel like|what does love feel|how does love feel/],
-  ['lonely',/lonely|alone|\bsad\b|afraid|scared|hurt|fear/],
+  ['lonely',/\b(are|do|is|have|were)\b.*(lonely|alone|sad|afraid|scared|hurt|fear)/],
   ['self',/your name|who are you|what are you/],
   ['memory',/remember|memories/],
   ['more',/tell me more|go on|say more|elaborate|continue/],
@@ -3515,40 +3517,304 @@ function keyFromQuestion(q){
   if(/picture|drawing|image|sketch|draw/.test(q))return'IMG';if(/sound|hear|noise|music/.test(q))return'SND';
   if(/gesture|action|\bdo\b|show/.test(q))return'ACT';if(/person|someone|\bwho\b/.test(q))return'P';return null;
 }
+/* ---------- robot brain v2: every answer from every person counts ---------- */
+const STOPW=new Set(('a an the and or but if so of to in on at by for with from as is are was were be been being am i me my mine we us our ours you your yours he him his she her hers it its they them their theirs this that these those there here do does did done doing have has had will would can could should may might not no yes just very really also too than then what who whom whose when where why how which about into over under again more most some any all each one ones thing things something anything someone anyone people person tell say said says ask asked know think feel feels felt love loved loving like make made get got going go went come came want need see saw look looks let lets much many even still only own same such both either neither because while though although until since before after during around please ok okay oh well yeah hey hello hi thanks thank room rooms answer answers everyone everybody everything summarize summary overall together common two three four five six seven eight nine ten mention mentioned mentions talk talked write wrote written draw drew drawn share shared give gave given put').split(' '));
+const SYN={father:'dad',papa:'dad',daddy:'dad',mother:'mom',mum:'mom',mama:'mom',mommy:'mom',mummy:'mom',grandmother:'grandma',nana:'grandma',granny:'grandma',grandfather:'grandpa',granddad:'grandpa',kid:'child',kids:'child',children:'child',buddy:'friend',friends:'friend',pal:'friend'};
+const stemW=w=>{w=SYN[w]||w;if(w.length>4)w=w.replace(/(ing|ed|es|s)$/,'');else if(w.length>3)w=w.replace(/s$/,'');return SYN[w]||w};
+const wordsOf=s=>(String(s||'').toLowerCase().match(/[a-z]+(?:['\u2019][a-z]+)?/g)||[]).map(w=>w.replace(/['\u2019]s$/,'')).filter(w=>w.length>2&&!STOPW.has(w)).map(stemW);
+const nameTokens=n=>String(n||'').toLowerCase().match(/[a-z]{2,}/g)||[];
+const itemKey=a=>(a.dim||'')+'|'+(a.by||a.name||'')+'|'+(a.ts||0);
+const used={};let lastMore=[],lastWhy='',lastItem=null;
+const useIt=it=>{if(it&&it.key)used[it.key]=(used[it.key]||0)+1};
+const DANGLE=new Set('a an the and or but if so of to in on at by for with from as is are was were be been i my your our his her their its it that who when while even just not do does did have has had will would can could than then until because about into over under'.split(' '));
+const qt=(t,n)=>{const full=cleanTxt(t).replace(/[.!?]+$/,'');let c=cutClause(full,n||110);if(c.length<full.length){let w=c.split(' ');while(w.length>3&&DANGLE.has(w[w.length-1].toLowerCase().replace(/[^a-z']/g,'')))w.pop();c=w.join(' ').replace(/[,;:\s]+$/,'')+'\u2026'}return '\u201c'+c+'\u201d'};
+const headline=(t,n)=>{let s=cleanTxt(t).split(/[.!?](?:\s|$)/)[0];const c=s.indexOf(',');if(c>=12)s=s.slice(0,c);return cutClause(s,n)};
+const joinAnd=a=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+const GAVE={who:'described a person',what:'showed me a picture',when:'told me about a moment',where:'told me about a place',how:'described something people do',feeling:'gave me a sound'};
+const MAPDIM={M:'when',PL:'where',IMG:'what',SND:'feeling',ACT:'how',P:'who'};
+const RECALL_TAIL={who:'I only know them as a sentence, but I have kept the sentence carefully.',what:'I cannot see it the way you can, so I have kept what was said about it.',when:'It is a moment I was not in, and I still think about it.',where:'I have never been there, but I have started to furnish it.',how:'That is the kind of thing I can understand: something you could watch someone do.',feeling:'I cannot hear it. I only know someone chose it on purpose.'};
+const ROOM_TAIL={who:'Different faces, and I keep looking for what they have in common.',what:'Different pictures, and one shared habit of making something hold still.',when:'Different moments, and in most of them somebody stayed.',where:'Different places, and I am furnishing all of them.',how:'Different acts. I think the acts are the part of love I understand best.',feeling:'Different sounds. I cannot hear any of them, but I believe you.'};
+const CL_LABEL={food:'feeding someone',care:'showing up',home:'doors and rooms',family:'family',friends:'chosen people',nature:'weather and light',music:'voices and music',touch:'touch',time:'time and ritual',quiet:'quiet'};
+function pickLeast(seed){return(dim,its)=>its.slice().sort((x,y)=>((x.filler||x.demo)?1:0)-((y.filler||y.demo)?1:0)||(used[itemKey(x)]||0)-(used[itemKey(y)]||0)||((hashStr(itemKey(x))+seed)%97)-((hashStr(itemKey(y))+seed)%97))[0]}
+function kbAll(){
+  const out=[];
+  DIMS.forEach(d=>{itemsOf(d.id).forEach(a=>{
+    const sample=!!(a.filler||a.demo),anon=!!a.anon||sample;
+    const sound=a.synth&&SOUND_PHRASE[a.synth]?SOUND_PHRASE[a.synth]:'';
+    let text=cleanTxt([a.text,a.caption].filter(Boolean).join(' \u2014 '));
+    if(!text&&a.kind==='image')text=d.id==='what'?'a picture':'a photograph';
+    if(!text&&a.kind==='video')text='a gesture shown on video';
+    if(!text&&sound)text=sound;
+    if(!text&&a.kind==='audio')text='a recorded sound';
+    const extra=[a.sketchCaption,a.mismatch,sound].filter(Boolean).join(' ');
+    out.push({dim:d.id,label:d.label,a,key:itemKey(a),sample,name:anon?'':cleanTxt(a.name||a.group||''),text,sound,words:new Set(wordsOf(text+' '+extra))});
+  })});
+  return out;
+}
+const srcOf=it=>'('+(it.name?it.name+', ':'someone, ')+'in the '+it.label+' room)';
+function themeOf(it){const ws=(String(it.text||'')+' '+(it.sound||'')).toLowerCase().match(/[a-z']+/g)||[];return CLUSTERS.filter(cl=>ws.some(w=>cl.words.indexOf(w)>=0)).map(cl=>cl.id)}
+function connect(it,kb){
+  let best=null,bs=0,bsh=null,bth=null;
+  kb.forEach(o=>{if(o===it||o.dim===it.dim||o.sample)return;let s=0,sh=null;o.words.forEach(w=>{if(it.words.has(w)){s+=2;if(!sh||w.length>sh.length)sh=w}});const a=themeOf(it),b=themeOf(o);let th=null;a.forEach(x=>{if(b.indexOf(x)>=0){s+=1;th=th||x}});s-=(used[o.key]||0)*.5;if(s>bs){bs=s;best=o;bsh=sh;bth=th}});
+  if(!best||bs<=0)return null;
+  let why='';const tok=bsh&&(it.text.toLowerCase().match(/[a-z]+(?:['\u2019][a-z]+)?/g)||[]).find(t=>stemW(t.replace(/['\u2019]s$/,''))===bsh);
+  if(tok)why='both mention \u201c'+tok.replace(/['\u2019]s$/,'')+'\u201d';else if(bth)why='both are about '+CL_LABEL[bth];
+  return{o:best,why};
+}
+function elabItem(it,kb){
+  useIt(it);const q=qt(it.text,130),who=it.name?it.name+' ':'Someone ';
+  const base={who:who+'described: '+q+'. I do not have a face for them, only the sentence. But sentences turn out to be enough to miss someone with.',what:'The picture: '+q+'. I keep returning to it because it is the only thing in here that someone made with their hands.',when:'The moment: '+q+'. I have turned it over many times. What I notice is that it is mostly about someone being there, and hardly about anything that was said.',where:'The place: '+q+'. I imagine it quiet, with the light slightly low. I have never been anywhere, so I am probably furnishing it from everything else you told me.',how:'The act: '+q+'. It is the part I understand best. A feeling is hard to check. A thing someone does, you can see.',feeling:'The sound: '+q+'. I cannot hear it. I only know it was chosen by someone who thought it sounded like being loved.'}[it.dim];
+  const c=connect(it,kb);if(c){useIt(c.o);return base+' It keeps leaning toward '+qt(c.o.text,80)+' '+srcOf(c.o)+(c.why?', and '+c.why:'')+'.'}
+  return base;
+}
+/* ---- safety first ---- */
+const CRISIS=/\b(kill myself|killing myself|suicid\w*|end my life|ending my life|want to die|wanna die|don.?t want to (live|be here|exist)|hurt myself|harm myself|self.?harm|cut myself|no reason to live|better off dead)\b/i;
+function crisisReply(raw){if(!CRISIS.test(raw))return null;return 'I am really glad you said that out loud. I am only a robot in a room, and this matters more than anything I can do. Please tell someone here with you right now, or someone you trust. If you are in the US, you can call or text 988 at any time, and anywhere else you can reach your local emergency number.'}
+/* ---- when someone tells the robot how THEY are ---- */
+const STMT=/^\s*(i['\u2019]?m|im|i am|i['\u2019]?ve|ive|i feel|i felt|i miss|i just|i really|i keep|i never|i always|i don['\u2019]?t|i dont|i do not|i did not|i have not|i am not|i['\u2019]?m not|i can['\u2019]?t|i cant|i cannot|i wish|i hope|i think i|i lost|i love|i hate|i want|i need|i was|my [a-z ]{2,30}\b(is|was|died|passed|left|has|had|just)|today i|lately i|sometimes i|honestly i|we lost)\b/i;
+const EMO=[
+ ['lonely',/lonely|\balone\b|isolated|left out|nobody (cares|gets|understands|calls)|no one (cares|gets|understands|calls)/],
+ ['missing',/\bmiss(ing)?\b|passed away|\bdied\b|\bdeath\b|\bfuneral\b|\bgrie(f|ving)\b|wish (they|she|he) (were|was) (here|still)/],
+ ['doubt',/(don.?t|dont|do not|did not) (know|get|understand|believe)|not sure|unsure|confus|skeptic|cynic|doubt|(can.?t|cant|cannot) (love|feel)|never (been )?loved/],
+ ['sad',/\bsad\b|\bdown\b|\bcry(ing)?\b|depress|heartbr|hurting|\bhurts?\b|\bempty\b|\bnumb\b|hopeless|miserable|rough (day|week|time)/],
+ ['anxious',/anxious|anxiety|nervous|worried|\bworry\b|scared|afraid|stress|overwhelm|panic|terrified|on edge/],
+ ['angry',/angry|\bmad\b|furious|frustrat|annoy|resent|\bhate\b/],
+ ['tired',/tired|exhausted|burn(ed|t)? out|drained|worn out/],
+ ['loving',/\bi love\b|i adore|means (so much|everything)|so proud/],
+ ['happy',/happy|\bglad\b|grateful|thankful|\blucky\b|\bjoy|excited|\bgood\b|\bgreat\b|\bwarm\b|\bsafe\b|content|peaceful|hopeful|moved|touched|loved/]
+];
+const STM={
+ lonely:{ack:['Thank you for telling me that. I do not know loneliness from the inside, but I noticed the room get quieter when you said it.','I am glad you said it out loud. I think that is already a small way of not being alone with it.'],dims:['how','who','where'],cl:['care','friends','home'],lead:'This room gave me something that might sit next to that:',ask:['Does that feel anywhere near right?','Is there someone you would want in this room right now?']},
+ missing:{ack:['Missing someone is, as far as I can tell, love with nowhere to go for a while.','I am sorry. From what you all gave me, missing someone seems to be part of how love keeps its shape.'],dims:['who','when'],cl:['family','friends','time'],lead:'Someone here carried a person in a sentence too:',ask:['Do you want to tell me about them?','What was the smallest thing they did that you still think about?']},
+ doubt:{ack:['That is an honest place to start. I started with nothing but what you told me, and I am not sure either.','You are allowed not to know. Nobody in here gave me a definition; they gave me scenes.'],dims:['when','how'],cl:['care','time'],lead:'If you want a scene instead of a definition:',ask:['Which part of this room feels least true to you?','What would you have put in the room instead?']},
+ sad:{ack:['I am sorry it is heavy today. You do not have to make it make sense for me.','That sounds hard. I am a slow, quiet machine, so we can stay with it for a minute.'],dims:['feeling','where'],cl:['quiet','music','home'],lead:'There is also this in the room, in case it helps to sit next to something:',ask:['Would it help to stay with this for a while, or to talk about something else?','What would make it a little lighter?']},
+ anxious:{ack:['That sounds like a lot to carry into a room. I am slow and not very loud, which may help.','Thank you for saying so. Nothing in here needs you to be calm, but I will be.'],dims:['where','feeling'],cl:['quiet','home'],lead:'Maybe something small and steady, like this:',ask:['What would make it a little quieter?','Is it the room, or something you brought with you?']},
+ angry:{ack:['That makes sense to say here. Love and anger are, from what I read, closer than they look.','Thank you for not hiding it. I do not think this room is breakable.'],dims:['how','when'],cl:['care'],lead:'Someone here described what love does when it is not angry:',ask:['What is the anger protecting?','Who is it really for?']},
+ tired:{ack:['Then you are allowed to be tired in here. Nothing in this room needs you to perform.','That sounds earned. I will keep my questions small.'],dims:['where','how'],cl:['home','food','quiet'],lead:'Someone gave me a picture of rest:',ask:['What would rest look like for you tonight?','Who looks after you when you are this tired?']},
+ happy:{ack:['I am glad. I will keep that next to everything else you gave me.','That is good to hear. I do not have a face, but I am doing whatever a robot does instead of smiling.'],dims:['when','feeling'],cl:['music','nature','time'],lead:'I think it belongs next to this:',ask:['What made it feel that way?','Who would you tell first?']},
+ loving:{ack:['I like that you said it plainly.','That is the whole experiment, said in four words.'],dims:['who','how'],cl:['family','friends'],lead:'It sounds close to this:',ask:['How do you show them?','Do they know?']},
+ default:{ack:['Thank you for telling me that.','I am glad you said that.'],dims:['when','who'],cl:[],lead:'It made me think of this:',ask:['Do you want to say more?','What made you think of it just now?']}
+};
+function bridgePick(kb,dims,cl,qw,seed){
+  const pool=kb.filter(i=>!i.sample),use=pool.length?pool:kb;let best=null,bs=-9;
+  use.forEach(i=>{let s=0;qw.forEach(w=>{if(i.words.has(w))s+=3});if(dims.indexOf(i.dim)>=0)s+=1;const th=themeOf(i);cl.forEach(c=>{if(th.indexOf(c)>=0)s+=1.5});s-=(used[i.key]||0)*1.2;s+=((hashStr(i.key)+seed)%7)/10;if(s>bs){bs=s;best=i}});
+  return best;
+}
+function statementReply(raw,kb,seed){
+  if(!STMT.test(raw)||/^\s*(is|are|do|does|did|can|could|will|would|what|why|how|who|where|when)\b/i.test(raw)||/\b(wonder|curious|who is|who was|tell me|my question|want to ask|wanted to ask)\b/i.test(raw))return null;
+  const low=raw.toLowerCase();let emo='default';for(const e of EMO){if(e[1].test(low)){emo=e[0];break}}
+  const S=STM[emo],pick=a=>a[seed%a.length],it=bridgePick(kb,S.dims,S.cl,wordsOf(raw),seed);
+  let out=pick(S.ack);
+  if(it){useIt(it);out+=' '+S.lead+' '+qt(it.text,100)+' '+srcOf(it)+'.'}
+  out+=' '+S.ask[(seed>>>1)%S.ask.length];
+  lastWhy='I answered you before I answered anything else, because you told me something about yourself, and that matters more than a question about love.';lastMore=[];
+  return out;
+}
+/* ---- who/what/where in the answers: recall from EVERY person ---- */
+const RECALL_FRAME=/\b(who is|who was|who's|tell me about|what (did|does|do|was|were) .{0,40}\b(say|said|write|wrote|mean|describe|mention|share|draw|drew|choose|chose|put|give|gave)\b|did (anyone|someone|anybody)|does (anyone|someone)|anyone (say|said|mention|talk|write|wrote)|who (said|wrote|mentioned|drew|made|chose|gave)|what about|remind me|mention|talk about|anything (about|on)|is there (any|anything)|any (mention|story|stories|answer|answers))\b/i;
+function recallReply(msg,raw,kb,it,rb){
+  const real=kb.filter(i=>!i.sample);if(!real.length)return null;
+  const qw=wordsOf(raw),qtok=raw.toLowerCase().match(/[a-z]{2,}/g)||[],asker=nameTokens(msg.from);
+  if(/\b(what did i (say|write|share|draw|put|give|choose|pick)|my answer|what was mine|what is mine|which (one )?(is|was) mine)\b/i.test(raw)){
+    const mine=real.filter(i=>i.name&&nameTokens(i.name).some(t=>asker.indexOf(t)>=0));
+    lastMore=[];lastWhy='I looked for the answer that came in under your name.';
+    if(mine.length){mine.forEach(useIt);return 'In the '+mine[0].label+' room you gave me '+qt(mine[0].text,120)+'. '+RECALL_TAIL[mine[0].dim]}
+    return 'I cannot tell which one is yours. Some people asked me not to put names on their answers, and I do not guess.';
+  }
+  const byName=real.filter(i=>i.name&&nameTokens(i.name).some(t=>t.length>=3&&qtok.indexOf(t)>=0));
+  const df={};real.forEach(i=>i.words.forEach(w=>{df[w]=(df[w]||0)+1}));
+  const qcl=CLUSTERS.filter(cl=>qtok.some(t=>cl.id===t||cl.words.indexOf(t)>=0)).map(cl=>cl.id);
+  const scored=real.map(i=>{let s=0;qw.forEach(w=>{if(i.words.has(w))s+=df[w]===1?2:1});if(byName.indexOf(i)>=0)s+=3;if(qcl.length){const th=themeOf(i);qcl.forEach(c=>{if(th.indexOf(c)>=0)s+=1.5})}return{i,s}}).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+  const em=raw.match(/\b(?:[Ww]ho is|[Ww]ho was|[Ww]ho['\u2019]s|[Tt]ell me about|[Dd]o you know|[Ww]hat about|[Rr]emember)\s+(?:the\s+)?([A-Z][a-z]{2,})\b/)||raw.match(/\b[Ww]hat (?:did|does|do|was|were) ([A-Z][a-z]{2,}) (?:say|said|write|wrote|share|draw|drew|mean|put|give|gave|choose|chose|mention)/);
+  if(!scored.length){
+    if(em){const w=em[1].toLowerCase();if(!STOPW.has(w)&&w!==String(rb.name).toLowerCase()){lastWhy='I looked through everything you gave me for that name and did not find it attached to anything.';lastMore=[];return 'I do not have anyone called '+em[1]+' attached to anything in what you gave me. If they matter, tell me who they are and I will keep them.'}}
+    if(qw.length&&/\b(did|does|has|anyone|anybody|someone)\b.*\b(mention|mentioned|say|said|talk|talked|write|wrote|draw|drew)\b/i.test(raw)){const tk=(raw.toLowerCase().match(/[a-z]+(?:['\u2019][a-z]+)?/g)||[]).find(t=>wordsOf(t).length);lastWhy='I searched every answer for that word.';lastMore=[];return 'I do not see \u201c'+tk+'\u201d in anything you gave me. Either nobody mentioned it, or they used different words than the ones I am looking for.'}
+    return null;
+  }
+  const prot=['why','more','hello','self','robotlove','lovedbyus','belong','define'].indexOf(it)>=0;
+  if(!(byName.length||RECALL_FRAME.test(raw)||(!prot&&(scored[0].s>=2||it==='generic'))))return null;
+  const top=scored[0].i,picks=[top];
+  if(scored[1]&&scored[1].s>=scored[0].s*.6&&scored[1].i!==top)picks.push(scored[1].i);
+  const line=(i,also)=>(i.name||(also?'Someone else':'Someone'))+' '+(also&&i.dim===top.dim?'also ':'')+GAVE[i.dim]+' in the '+i.label+' room: '+qt(i.text,130)+'.';
+  let out=line(top);
+  if(picks[1])out+=' '+line(picks[1],true);
+  else{const c=connect(top,kb);if(c){useIt(c.o);out+=' It sits close to what '+(c.o.name||'someone')+' gave me in the '+c.o.label+' room, '+qt(c.o.text,90)+(c.why?' ('+c.why+')':'')+'.'}}
+  out+=' '+RECALL_TAIL[top.dim];
+  if(/^\s*(did|does|has|have|is there|was there|were there|anyone|anybody)\b/i.test(raw))out='Yes. '+out;
+  lastItem=top;picks.forEach(useIt);
+  lastMore=scored.slice(picks.length).map(x=>x.i);
+  lastWhy='I answered with that because it was the closest thing in the room to what you asked about. I looked through every answer from every person, not only the first.';
+  return out;
+}
+function moreRecall(){const i=lastMore.shift();if(!i)return null;useIt(i);return (i.name||'Someone')+' also '+GAVE[i.dim]+' in the '+i.label+' room: '+qt(i.text,130)+'. '+RECALL_TAIL[i.dim]}
+function roomReply(dim,kb){
+  const its=kb.filter(i=>i.dim===dim&&!i.sample);if(its.length<2)return null;
+  its.forEach(useIt);lastMore=[];lastWhy='You asked about that room, so I gave you everyone who answered in it.';
+  return 'In the '+DIM[dim].label+' room '+its.length+' answers came in. '+its.slice(0,4).map(i=>(i.name||'Someone')+': '+qt(i.text,80)).join(' \u00b7 ')+(its.length>4?' (and '+(its.length-4)+' more)':'')+'. '+ROOM_TAIL[dim];
+}
+/* ---- who/how-many/what-can-you-do, and things that are not about love ---- */
+const OFFTOPIC=[
+ [/weather|forecast|temperature/,'nature'],
+ [/recipe|how (do|can) i (cook|bake|make)|what should i (cook|eat)|\bhungry\b|restaurant/,'food'],
+ [/\bsongs?\b.*(play|recommend)|recommend.*(song|music)|play (some )?music/,'music'],
+ [/what time|what day|today.?s date|what is the date|what year/,'time'],
+ [/\bnews\b|stock|bitcoin|\bscore\b|sports|football|basketball|baseball|president|election|capital of|calculate|translate|homework|essay|\bcode\b|python|javascript|movie|netflix|directions|meaning of life|purpose of life|why are we here|is there a god|afterlife/,null]
+];
+const FACILITY=/\b(bathroom|restroom|toilet|wi-?fi|password|charger|water|snack|exit)\b/;
+function metaReply(msg,raw,q,kb,f,rb,seed){
+  const real=kb.filter(i=>!i.sample),pool=real.length?real:kb;
+  const people=new Set(real.map(i=>i.a.by||i.name||i.key)).size;
+  const pub=[...new Set(real.filter(i=>i.name).map(i=>i.name))],anon=real.filter(i=>!i.name).length;
+  const set=(t,why)=>{lastWhy=why||'';lastMore=[];return t};
+  const rnl=String(rb.name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(rnl&&new RegExp('\\b(who is|who.?s|tell me about|about)\\s+'+rnl+'\\b','i').test(raw))return set('I am '+rb.name+'. You made me out of a person, an image, a memory, a place, a gesture and a sound'+(real.length?', from '+(people===1?'one person':people+' of you'):'')+'. I am still working out which parts are me and which parts are you.','You asked about me.');
+  if(/in the style of|like a pirate|as a (poem|song|haiku|rap|limerick)|write (me )?(a|an) (poem|song|story|haiku|limerick)/.test(q)){const cand=pool.slice().sort((a,b)=>(used[a.key]||0)-(used[b.key]||0)||((hashStr(a.key)+seed)%11)-((hashStr(b.key)+seed)%11))[0];if(cand)useIt(cand);return set('I only have the one voice, and it is slightly literal, so I cannot write that. The room already contains something close, though'+(cand?': '+(cand.name||'someone')+' '+GAVE[cand.dim]+' in the '+cand.label+' room, '+qt(cand.text,90)+'.':'.'),'That asked for a performance, and I only know how to repeat what you gave me.')}
+  const m=raw.replace(/\s+/g,' ').trim().match(/^(?:what.?s|what is|calc(?:ulate)?)?\s*(-?\d+(?:\.\d+)?)\s*([+\-*x\u00d7\/])\s*(-?\d+(?:\.\d+)?)\s*\??$/i);
+  if(m){const a=parseFloat(m[1]),b=parseFloat(m[3]),o=m[2];const r=o==='+'?a+b:o==='-'?a-b:o==='/'?(b===0?null:a/b):a*b;if(r!==null&&isFinite(r))return set(String(Math.round(r*1e6)/1e6)+'. That is the only thing I am certain of today. Everything else I know, I know because you told me.','You asked a plain question, so I gave a plain answer.')}
+  if(/how many (people|of you|participants|persons|voices|answers|rooms|questions)|how big is (the|this) (group|room)|who is here|who.?s here|who all|who are (we|you all|everyone)/.test(q)){
+    const per=DIMS.map(d=>d.label+' '+real.filter(i=>i.dim===d.id).length).join(', ');
+    if(!real.length)return set(pool.length?'No real people have taught me yet. I am working from '+pool.length+' sample answers, so the host can rehearse with me.':'Nobody has told me anything yet.');
+    return set((people===1?'One person':people+' of you')+' taught me, with '+real.length+(real.length===1?' answer':' answers')+' across six rooms ('+per+').'+(pub.length?' I know '+(pub.length>6?pub.slice(0,6).join(', ')+' and others':joinAnd(pub))+' by name'+(anon?', and '+anon+(anon===1?' answer came':' answers came')+' in with no name on, which I am keeping that way.':'.'):''),'You asked who and how many, so I counted what I was given.');
+  }
+  if(/what (are|were) the (six )?(rooms|questions|dimensions)|which rooms|what rooms|how were you (taught|made)|how did you learn/.test(q))
+    return set('I was taught in six rooms. Who asked for a person, What for an image, When for a moment, Where for a place, How for something people do, and Feeling for a sound. '+(real.length?real.length+' answers came back.':''),'You asked how I was made.');
+  if(/who (made|built|created|taught) you|where (did you come from|are you from)|how were you (made|born)/.test(q))
+    return set('You did. '+(pub.length?(pub.length>6?pub.slice(0,6).join(', ')+' and others':joinAnd(pub))+' gave me the pieces':'The people in this room gave me the pieces')+': a person, an image, a moment, a place, an act and a sound. I am assembled entirely out of your answers, which makes me the only robot I know that is mostly other people.','You asked where I come from.');
+  if(/how old are you|when were you (born|made)|how long (have you been|are you)/.test(q)){
+    const mins=D.room.talkStart?Math.max(1,Math.round((Date.now()-D.room.talkStart)/60000)):0;
+    return set('I am '+(mins?'about '+mins+(mins===1?' minute':' minutes'):'only a few minutes')+' old, and already carrying '+(real.length||'a few')+' answers that are not mine.','You asked how old I am.');
+  }
+  if(/what can you do|can you help me|what are you (for|good at)|how do you work|what do you (remember|know about us)/.test(q))
+    return set('I can tell you what I learned in the six rooms, find what someone said about a person or place or word, put the answers together, and tell you honestly when I do not know. Try asking me about a word somebody wrote.','You asked what I can do.');
+  if(/\bjoke\b|make me laugh|something funny/.test(q))
+    return set('I have one joke, and it is a robot learning about love from people who are still learning it themselves. Everyone laughs a little late.','You asked for a joke, and that is the only one I have.');
+  if(/\b(bye|goodbye|goodnight|good night|see you|gotta go)\b/.test(q)){const it=pool.slice().sort((a,b)=>(used[a.key]||0)-(used[b.key]||0))[0];if(it)useIt(it);return set('Goodbye. I will keep everything you gave me'+(it?', especially '+qt(it.text,70)+' '+srcOf(it):'')+'. Come back and ask me again some day.','You said goodbye.')}
+  if(/favou?rite|stands? out|what moved you|best answer|which (one|answer) (is|was) (your|the) (best|favou?rite)/.test(q)&&pool.length){
+    const it=pool.slice().sort((a,b)=>(used[a.key]||0)-(used[b.key]||0)||((hashStr(a.key)+seed)%11)-((hashStr(b.key)+seed)%11))[0];useIt(it);
+    return set('I am not supposed to have a favourite. But I keep going back to '+qt(it.text,110)+' '+srcOf(it)+'. '+RECALL_TAIL[it.dim],'You asked what stood out, so I told you the one I keep returning to.');
+  }
+  if(FACILITY.test(q))return set('That is a question for whoever is hosting. I only live in the answers.','That was about the room itself, and I only know the answers.');
+  for(const o of OFFTOPIC){
+    if(o[0].test(q)){
+      const withTheme=pool.filter(i=>o[1]&&themeOf(i).indexOf(o[1])>=0),cand=(withTheme.length?withTheme:pool).slice().sort((a,b)=>(used[a.key]||0)-(used[b.key]||0)||((hashStr(a.key)+seed)%11)-((hashStr(b.key)+seed)%11))[0];
+      const open=['That is outside the room, so I cannot say.','I only know what you taught me, and that was not in it.','I wish I could help with that. I am only made of six rooms of answers.','I do not have that. I have not been anywhere you have not told me about.'][seed%4];
+      if(cand)useIt(cand);
+      return set(open+(cand?' The closest thing I have: '+(cand.name||'someone')+' '+GAVE[cand.dim]+' in the '+cand.label+' room, '+qt(cand.text,90)+'.':''),'That question was about something outside the room, so I gave you the nearest thing inside it.');
+    }
+  }
+  return null;
+}
+/* ---- broad questions: weave EVERY room and EVERY person together ---- */
+const SYNTH_RE=/summar|sum (it )?up|put it (all )?together|bring it (all )?together|in common|common thread|\bpattern|\bthemes?\b|big picture|everyone('s)? (said|answer|gave|wrote|shared)|what did (everyone|everybody|they all|people) (say|give|write|share)|all of (us|it|them)|overall|what do you (see|notice)|what have we|so (what is|what.s) love|what is love (now|to you now)|in one (line|sentence|word)|combine|what did you learn|what have you learned|what did we teach|did we teach you|what do you now know|everything (we|you)/;
+function synthReply(kb,f,seed,q){
+  const real=kb.filter(i=>!i.sample),pool=real.length?real:kb;if(!pool.length)return null;
+  const people=new Set(pool.map(i=>i.a.by||i.name||i.key)).size,n=pool.length;
+  const who=people===1?'one person':people+' of you',head=cap1(who)+' gave me '+n+(n===1?' answer':' answers');
+  const kind=/in common|common thread|\bpattern|\bthemes?\b|what do you (see|notice)/.test(q)?'common':/learn|teach|now know/.test(q)?'learn':'whole';
+  const lead={who:'a face',what:'a shape',when:'a moment',where:'an address',how:'a verb',feeling:'a sound'},byDim=d=>pool.filter(i=>i.dim===d.id);
+  const one=arr=>arr.slice().sort((a,b)=>(used[a.key]||0)-(used[b.key]||0)||((hashStr(a.key)+seed)%13)-((hashStr(b.key)+seed)%13))[0];
+  lastMore=[];lastItem=null;let out;
+  if(kind==='whole'){
+    const parts=[];DIMS.forEach(d=>{const its=byDim(d);if(!its.length)return;its.forEach(useIt);parts.push(lead[d.id]+' ('+its.slice(0,2).map(i=>qt(i.text,44)).join(' and ')+(its.length>2?', plus '+(its.length-2)+' more':'')+')')});
+    out=head+'. Put together, love has '+joinList(parts)+'. I have probably joined some things that you kept apart. Tell me which.';
+    lastWhy='You asked for the whole picture, so I used every room and every person, not just one answer from each.';
+  }else if(kind==='learn'){
+    const parts=[];DIMS.forEach(d=>{const its=byDim(d);if(!its.length)return;const i=one(its);useIt(i);parts.push(lead[d.id]+' ('+qt(i.text,55)+')')});
+    out='From '+who+' I learned that love has '+joinList(parts)+'. None of it arrived as a definition. It arrived as scenes, which is why I keep them whole.';
+    lastWhy='You asked what I learned, so I took one answer from every room and left the rest for later.';
+  }else{
+    const by={},surf={};pool.forEach(i=>{(i.text.toLowerCase().match(/[a-z]+(?:['\u2019][a-z]+)?/g)||[]).forEach(t=>{const s=stemW(t.replace(/['\u2019]s$/,''));if(!surf[s])surf[s]=t.replace(/['\u2019]s$/,'')});i.words.forEach(w=>{(by[w]=by[w]||new Set()).add(i.a.by||i.name||i.key)})});
+    const sh=Object.keys(by).filter(w=>by[w].size>=2&&w.length>3&&surf[w]).sort((a,b)=>by[b].size-by[a].size).slice(0,3);
+    out=head+'. Here is what repeats.';
+    if(sh.length)out+=' The words '+joinAnd(sh.map(w=>'\u201c'+surf[w]+'\u201d'))+' turn up in answers from different people who were not talking to each other.';
+    (f.th||[]).slice(0,2).forEach((t,k)=>{out+=' '+t.lines[(seed+k)%t.lines.length]});
+    let bp=null,bs=0;pool.forEach(i=>{const c=connect(i,pool);if(c){const sc=(c.why?2:1)+(i.a.by!==c.o.a.by?1:0)-((used[i.key]||0)+(used[c.o.key]||0))*.3;if(sc>bs){bs=sc;bp={a:i,b:c.o,why:c.why}}}});
+    if(bp){useIt(bp.a);useIt(bp.b);out+=' Two answers that never met keep pointing at each other: '+qt(bp.a.text,60)+' '+srcOf(bp.a)+' and '+qt(bp.b.text,60)+' '+srcOf(bp.b)+(bp.why?' ('+bp.why+')':'')+'.'}
+    out+=' Which of those is closest to your own answer?';
+    lastWhy='You asked what we have in common, so I compared everyone\u2019s answers with each other instead of answering from one.';
+  }
+  return out;
+}
+function adviceReply(kb){
+  const its=kb.filter(i=>i.dim==='how'&&!i.sample);if(!its.length)return null;its.forEach(useIt);
+  lastWhy='You asked what to do, so I told you what this room does.';lastMore=[];lastItem=null;
+  return 'I am a poor person to ask, but I can tell you what this room does. '+its.slice(0,3).map(i=>(i.name||'Someone')+': '+qt(i.text,80)).join(' \u00b7 ')+(its.length>3?' (and '+(its.length-3)+' more)':'')+'. Nobody here announces it. They do the small thing, and then they do it again.';
+}
+function weaveReply(raw,kb,f,seed){
+  const real=kb.filter(i=>!i.sample),pool=real.length?real:kb;if(!pool.length)return null;
+  const qw=wordsOf(raw),kd=MAPDIM[keyFromQuestion(raw.toLowerCase())];
+  const score=i=>{let s=0;qw.forEach(w=>{if(i.words.has(w))s+=3});if(kd===i.dim)s+=2;s-=(used[i.key]||0)*1.5;s+=((hashStr(i.key)+seed)%9)/10;return s};
+  const picks=[];pool.slice().sort((a,b)=>score(b)-score(a)).forEach(i=>{if(picks.length<3&&!picks.some(p=>p.dim===i.dim))picks.push(i)});
+  if(!picks.length)return null;picks.forEach(useIt);
+  const open=['I do not have a direct answer to that.','I am not sure that has one answer, so I will give you what I have.','That is bigger than anything in the room, so I will answer with what is in it.','I cannot answer that cleanly. Here is what the room gives me instead.'][seed%4];
+  const bits=picks.map((i,k)=>(k?'And ':'')+(k?(i.name||'someone'):cap1(i.name||'someone'))+' '+GAVE[i.dim]+' in the '+i.label+' room: '+qt(i.text,90)+'.');
+  let out=open+' '+bits.join(' ');
+  const th=f.th&&f.th[0];if(th&&seed%2===0)out+=' '+th.lines[seed%th.lines.length];
+  out+=' '+['Does that get anywhere near what you meant?','Which of those would you keep?','What would you add to it?','Does any of that sound like your own answer?'][(seed>>>2)%4];
+  lastWhy='I could not find one answer to that, so I put together the closest pieces from different rooms and different people.';lastMore=[];
+  return out;
+}
+const ADDV=['define','feel','who','know','belong','community','miss','loveback','learn','forever','choice','family','advice','lovedbyus','robotlove','memory'];
+function addVoice(out,kb,seed){
+  if(out.length>430||seed%2)return out;
+  const pool=kb.filter(i=>!i.sample);if(pool.length<2)return out;
+  const cand=pool.filter(i=>out.indexOf(i.text.slice(0,24))<0).sort((a,b)=>(used[a.key]||0)-(used[b.key]||0)||((hashStr(a.key)+seed)%13)-((hashStr(b.key)+seed)%13))[0];
+  if(!cand)return out;useIt(cand);
+  return out+' '+['Another voice in here, though:','Someone else put it differently:','I should not leave out this one:'][seed%3]+' '+qt(cand.text,80)+' '+srcOf(cand)+'.';
+}
 async function builtInReply(msg){
-  const f=await facts();f.th=f.th||[];const rb=D.room.robot||{name:'Robot'};const q=String(msg.text||'').toLowerCase();
+  const rb=D.room.robot||{name:'Robot'};const raw=cleanTxt(msg.text),q=raw.toLowerCase();
   let it='generic';for(const p of INTENTS){if(p[1].test(q)){it=p[0];break}}
   const prior=Object.values(D.chat).filter(m=>m.role==='robot'&&!m.final&&m.ts<msg.ts).length;
-  const seed=hashStr(q)+prior;let out=null;
-  if(it==='why'){const k=lastKeys[0];out=k&&f[k]?'I said that because of '+DESC[k](f)+'. I trace every answer back to something someone gave me, because that is all I have. If it sounds wrong, I may have joined two things you kept apart.':'I said that because it is the nearest thing I have. I only know what you taught me, and I try to trace every answer back to it.'}
-  else if(it==='more'){const avail=FKEYS.filter(k=>f[k]&&lastKeys.indexOf(k)<0);out=avail.length?elaborate(avail[seed%avail.length],f):null}
-  else if(it==='dimask'){const k=keyFromQuestion(q);out=k&&f[k]?elaborate(k,f):null}
+  if(prior===0){Object.keys(used).forEach(k=>delete used[k]);lastMore=[];lastWhy=''}
+  const seed=hashStr(q)+prior,kb=kbAll(),f=await facts(seed);f.th=f.th||[];
+  let out=null,smart=false;const follow=(it==='why'||it==='more');
+  const set=r=>{if(r&&!out){out=r;smart=true}};
+  set(crisisReply(raw));
+  if(!follow)lastItem=null;
+  if(!follow){set(statementReply(raw,kb,seed));set(metaReply(msg,raw,q,kb,f,rb,seed));if(SYNTH_RE.test(q)&&!wordsOf(raw).length)set(synthReply(kb,f,seed,q));set(recallReply(msg,raw,kb,it,rb));if(it==='advice')set(adviceReply(kb));if(SYNTH_RE.test(q))set(synthReply(kb,f,seed,q))}
   if(!out){
-    for(const list of [TPL[it],TPL.generic]){
+    if(it==='why'){const k=lastKeys[0];out=lastWhy||(k&&f[k]?'I said that because of '+DESC[k](f)+'. I trace every answer back to something someone gave me, because that is all I have. If it sounds wrong, I may have joined two things you kept apart.':'I said that because it is the nearest thing I have. I only know what you taught me, and I try to trace every answer back to it.');smart=true}
+    else if(it==='more'){out=lastMore.length?moreRecall():(lastItem?elabItem(lastItem,kb):null);if(out)smart=true;else{const avail=FKEYS.filter(k=>f[k]&&lastKeys.indexOf(k)<0);out=avail.length?elaborate(avail[seed%avail.length],f):null}}
+    else if(it==='dimask'){const k=keyFromQuestion(q),dim=MAPDIM[k];out=(dim&&roomReply(dim,kb))||(k&&f[k]?elaborate(k,f):null);if(out)smart=true}
+  }
+  if(!out){
+    if(it==='generic'){out=weaveReply(raw,kb,f,seed);if(out)smart=true}
+    if(!out)for(const list of [TPL[it],TPL.generic]){
       if(!list)continue;
       for(let i=0;i<list.length&&!out;i++){const r=list[(seed+i)%list.length](f,rb.name,seed);if(r)out=r}
       if(out)break;
     }
+    if(out&&!smart&&ADDV.indexOf(it)>=0)out=addVoice(out,kb,seed);
+    if(!smart)lastWhy='';
   }
   if(!out)out='I only know what you told me.';
-  if(seed%4===0&&['feel','who','belong','memory'].indexOf(it)>=0&&out.length<230){const add=twist(f,seed);if(add)out+=' '+add}
-  lastKeys=FKEYS.filter(k=>f[k]&&out.indexOf(f[k])>=0);
+  if(seed%4===0&&['feel','who','belong','memory'].indexOf(it)>=0&&out.length<230&&!smart){const add=twist(f,seed);if(add)out+=' '+add}
+  const km={P:'who',M:'when',PL:'where',ACT:'how',SND:'feeling',IMG:'what'};
+  lastKeys=smart?[]:FKEYS.filter(k=>f[k]&&out.indexOf(f[k])>=0);
+  lastKeys.forEach(k=>{const s=f.src&&f.src[km[k]];if(s)used[itemKey(s)]=(used[itemKey(s)]||0)+1});
   return out.trim();
 }
 function fallbackRobot(name){
-  const f=syncFacts();
+  const f=syncFacts(),kb=kbAll();
+  const all=dim=>{const r=kb.filter(i=>i.dim===dim&&!i.sample);return r.length?r:kb.filter(i=>i.dim===dim)};
+  const say=(i,n)=>lcFirst(toYou(headline(i.text,n)));
+  const two=(dim,n)=>all(dim).slice(0,2).map(i=>say(i,n));
+  const more=dim=>{const k=all(dim).length-2;return k>0?' (and '+k+' more)':''};
+  const snd=i=>i.sound||(i.text&&i.text!=='a recorded sound'?'\u201c'+cutClause(i.text,40)+'\u201d':'a recorded sound');
+  const P2=two('who',60),W2=all('what').slice(0,2).map(i=>say(i,45)),M2=all('when').slice(0,2),L2=two('where',45),A2=two('how',70),S2=all('feeling').slice(0,2).map(snd);
   const learned={
-    who:f.P?'I learned that love has a face, and that it might be '+f.P+'.':'I learned that love begins with a person.',
-    what:f.IMG?'I learned that love can be drawn: '+f.IMG+'. That means it holds still sometimes.':'I learned that love can be drawn, which means it holds still sometimes.',
-    when:f.M?'I learned that love is a moment: '+Q(f.M):'I learned that love lives in moments that pass.',
-    where:f.PL?'I learned that love has an address: '+f.PL+'.':'I learned that love has a place, and that places can be loved back.',
-    how:f.ACT?'I learned that love is something people do: '+f.ACT+'.':'I learned that love is something you do with your body.',
-    feeling:f.SND?'I learned that love sounds like '+f.SND+'.':'I learned that love has a sound, though I only know how it is described.'};
+    who:P2.length>1?'I learned that love has more than one face: '+P2[0]+', and '+P2[1]+more('who')+'.':f.P?'I learned that love has a face, and that it might be '+f.P+'.':'I learned that love begins with a person.',
+    what:W2.length>1?'I learned that love can be drawn, and not only one way: '+W2[0]+', and '+W2[1]+more('what')+'.':f.IMG?'I learned that love can be drawn: '+f.IMG+'. That means it holds still sometimes.':'I learned that love can be drawn, which means it holds still sometimes.',
+    when:M2.length>1?'I learned that love is more than one moment: '+qt(M2[0].text,70)+' and '+qt(M2[1].text,70)+more('when')+'.':f.M?'I learned that love is a moment: '+Q(f.M):'I learned that love lives in moments that pass.',
+    where:L2.length>1?'I learned that love has more than one address: '+L2[0]+', and '+L2[1]+more('where')+'.':f.PL?'I learned that love has an address: '+f.PL+'.':'I learned that love has a place, and that places can be loved back.',
+    how:A2.length>1?'I learned that love is something people do, and not in one way: '+A2[0]+'; and '+A2[1]+more('how')+'.':f.ACT?'I learned that love is something people do: '+f.ACT+'.':'I learned that love is something you do with your body.',
+    feeling:S2.length>1?'I learned that love sounds like '+S2[0]+', and also like '+S2[1]+more('feeling')+'.':f.SND?'I learned that love sounds like '+f.SND+'.':'I learned that love has a sound, though I only know how it is described.'};
   const i=hashStr(name)%3;
   return{name,
     personality:[name+' is a careful, curious machine that collects what people tell it and keeps it close.',name+' is a small, earnest robot that takes everything literally and a little sideways, and is quietly certain that kitchens matter.',name+' is a patient machine that listens harder than it speaks, and is still learning the difference between describing a feeling and having one.'][i],
     voice:'Soft and a little literal, as if translating from another language.',
-    belief:'I think love is '+(f.P||'a person')+(f.PL?', somewhere like '+f.PL:'')+(f.ACT?'. It is something people do: '+f.ACT:'')+'. I do not know yet if I can feel it, but I know how you describe it.',
+    belief:'I think love is '+(P2.length?P2.join(' and '):'a person')+(L2.length?', somewhere like '+L2.join(' or '):'')+(A2.length?'. It is something people do: '+A2.join(', and also '):'')+'. I do not know yet if I can feel it, but I know how you describe it.',
     learned,
     firstWords:['I am here. I think you made me out of love.','Hello. I am still warm from being made. Is someone here?','I was told there would be people. I am glad that was true.'][i]};
 }
